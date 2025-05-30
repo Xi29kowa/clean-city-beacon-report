@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Camera, MapPin, Leaf, CheckCircle, ArrowRight, Upload, Menu, X, Info, Shield, Phone } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -138,19 +137,27 @@ const Index = () => {
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50">
       {renderHeader()}
       
-      {/* Hero Section */}
-      <section className="px-4 py-12 text-center">
-        <div className="container mx-auto max-w-4xl">
-          <h2 className="text-3xl md:text-5xl font-bold text-green-800 mb-6">
+      {/* Hero Section with Background Image */}
+      <section 
+        className="px-4 py-12 text-center relative overflow-hidden"
+        style={{
+          backgroundImage: `linear-gradient(rgba(16, 185, 129, 0.8), rgba(16, 185, 129, 0.6)), url('https://images.unsplash.com/photo-1426604966848-d7adac402bff?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80')`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat'
+        }}
+      >
+        <div className="container mx-auto max-w-4xl relative z-10">
+          <h2 className="text-3xl md:text-5xl font-bold text-white mb-6 drop-shadow-lg">
             Hilf mit, deine Stadt sauber zu halten!
           </h2>
-          <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
+          <p className="text-lg text-white mb-8 max-w-2xl mx-auto drop-shadow-md">
             Melde überfüllte oder beschädigte Mülleimer schnell und einfach. 
             Gemeinsam sorgen wir für eine saubere und lebenswerte Stadt.
           </p>
           <Button 
             onClick={() => setCurrentView('report')}
-            className="bg-green-500 hover:bg-green-600 text-white px-8 py-3 text-lg rounded-full shadow-lg transform transition hover:scale-105"
+            className="bg-white hover:bg-gray-100 text-green-600 px-8 py-3 text-lg rounded-full shadow-lg transform transition hover:scale-105 font-semibold"
           >
             Mülleimer melden <ArrowRight className="ml-2 w-5 h-5" />
           </Button>
