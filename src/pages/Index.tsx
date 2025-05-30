@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Camera, MapPin, Leaf, CheckCircle, ArrowRight, Upload, Menu, X, Info, Shield, Phone } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 const Index = () => {
   const [currentView, setCurrentView] = useState('home');
   const [showMenu, setShowMenu] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [formData, setFormData] = useState({
     location: '',
     photo: null,
@@ -18,6 +19,26 @@ const Index = () => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+
+  // City images for slideshow
+  const cityImages = [
+    'https://images.unsplash.com/photo-1487958449943-2429e8be8625?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80', // white concrete building
+    'https://images.unsplash.com/photo-1486718448742-163732cd1544?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80', // minimalist brown wavy structure
+    'https://images.unsplash.com/photo-1493397212122-2b85dda8106b?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80', // building with wavy lines
+    'https://images.unsplash.com/photo-1551038247-3d9af20df552?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80', // blue and white building
+    'https://images.unsplash.com/photo-1524230572899-a752b3835840?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80' // white concrete building
+  ];
+
+  // Slideshow effect
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentImageIndex((prevIndex) => 
+        prevIndex === cityImages.length - 1 ? 0 : prevIndex + 1
+      );
+    }, 4000); // Change image every 4 seconds
+
+    return () => clearInterval(interval);
+  }, [cityImages.length]);
 
   const handleLocationCapture = () => {
     if (navigator.geolocation) {
@@ -137,30 +158,55 @@ const Index = () => {
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50">
       {renderHeader()}
       
-      {/* Hero Section with Background Image */}
-      <section 
-        className="px-4 py-12 text-center relative overflow-hidden"
-        style={{
-          backgroundImage: `linear-gradient(rgba(16, 185, 129, 0.8), rgba(16, 185, 129, 0.6)), url('https://images.unsplash.com/photo-1426604966848-d7adac402bff?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80')`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundRepeat: 'no-repeat'
-        }}
-      >
-        <div className="container mx-auto max-w-4xl relative z-10">
-          <h2 className="text-3xl md:text-5xl font-bold text-white mb-6 drop-shadow-lg">
+      {/* Hero Section with Slideshow */}
+      <section className="px-4 py-12 text-center relative overflow-hidden h-96 md:h-[500px]">
+        {/* Background Images */}
+        {cityImages.map((image, index) => (
+          <div
+            key={index}
+            className={`absolute inset-0 transition-opacity duration-1000 ${
+              index === currentImageIndex ? 'opacity-100' : 'opacity-0'
+            }`}
+            style={{
+              backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.3)), url('${image}')`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              backgroundRepeat: 'no-repeat',
+              animation: index === currentImageIndex ? 'zoom-in 4s ease-in-out' : 'none',
+            }}
+          />
+        ))}
+        
+        {/* Content */}
+        <div className="container mx-auto max-w-4xl relative z-10 h-full flex flex-col justify-center">
+          <h2 className="text-3xl md:text-5xl font-bold text-white mb-6 drop-shadow-2xl">
             Hilf mit, deine Stadt sauber zu halten!
           </h2>
-          <p className="text-lg text-white mb-8 max-w-2xl mx-auto drop-shadow-md">
+          <p className="text-lg text-white mb-8 max-w-2xl mx-auto drop-shadow-lg">
             Melde überfüllte oder beschädigte Mülleimer schnell und einfach. 
             Gemeinsam sorgen wir für eine saubere und lebenswerte Stadt.
           </p>
           <Button 
             onClick={() => setCurrentView('report')}
-            className="bg-white hover:bg-gray-100 text-green-600 px-8 py-3 text-lg rounded-full shadow-lg transform transition hover:scale-105 font-semibold"
+            className="bg-green-500 hover:bg-green-600 text-white px-8 py-3 text-lg rounded-full shadow-lg transform transition hover:scale-105 font-semibold mx-auto"
           >
             Mülleimer melden <ArrowRight className="ml-2 w-5 h-5" />
           </Button>
+        </div>
+
+        {/* Slideshow Indicators */}
+        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2 z-20">
+          {cityImages.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => setCurrentImageIndex(index)}
+              className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                index === currentImageIndex 
+                  ? 'bg-white shadow-lg' 
+                  : 'bg-white/50 hover:bg-white/80'
+              }`}
+            />
+          ))}
         </div>
       </section>
 
