@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Camera, MapPin, Leaf, CheckCircle, ArrowRight, Upload, Menu, X, Info, Shield, Phone } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -101,54 +100,97 @@ const Index = () => {
   const renderHeader = () => (
     <header className="bg-white shadow-sm border-b border-green-100 sticky top-0 z-50">
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+        {/* Logo */}
         <div className="flex items-center space-x-2" onClick={() => setCurrentView('home')} style={{ cursor: 'pointer' }}>
           <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
             <Leaf className="w-5 h-5 text-white" />
           </div>
           <h1 className="text-xl font-bold text-green-800">CleanCity</h1>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setShowMenu(!showMenu)}
-          className="md:hidden"
-        >
-          {showMenu ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </Button>
-        <nav className="hidden md:flex items-center space-x-4">
+
+        {/* Desktop Navigation */}
+        <nav className="hidden md:flex items-center space-x-6">
           <Button 
             variant="ghost" 
             onClick={() => setCurrentView('home')}
-            className={currentView === 'home' ? 'text-green-600' : ''}
+            className={`px-4 py-2 rounded-md transition-colors ${
+              currentView === 'home' 
+                ? 'text-green-600 bg-green-50 font-semibold' 
+                : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
+            }`}
           >
-            Start
+            Startseite
+          </Button>
+          <Button 
+            variant="ghost" 
+            onClick={() => setCurrentView('about')}
+            className={`px-4 py-2 rounded-md transition-colors ${
+              currentView === 'about' 
+                ? 'text-green-600 bg-green-50 font-semibold' 
+                : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
+            }`}
+          >
+            Über uns
           </Button>
           <Button 
             variant="ghost" 
             onClick={() => setCurrentView('info')}
-            className={currentView === 'info' ? 'text-green-600' : ''}
+            className={`px-4 py-2 rounded-md transition-colors ${
+              currentView === 'info' 
+                ? 'text-green-600 bg-green-50 font-semibold' 
+                : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
+            }`}
           >
-            Info
+            Informationen
           </Button>
         </nav>
+
+        {/* Mobile Menu Button */}
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setShowMenu(!showMenu)}
+          className="md:hidden p-2"
+        >
+          {showMenu ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        </Button>
       </div>
       
       {/* Mobile Menu */}
       {showMenu && (
-        <div className="md:hidden bg-white border-t border-green-100 px-4 py-2">
+        <div className="md:hidden bg-white border-t border-green-100 px-4 py-2 shadow-lg">
           <Button 
             variant="ghost" 
-            className="w-full justify-start mb-2" 
+            className={`w-full justify-start mb-2 px-4 py-3 rounded-md transition-colors ${
+              currentView === 'home' 
+                ? 'text-green-600 bg-green-50 font-semibold' 
+                : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
+            }`}
             onClick={() => { setCurrentView('home'); setShowMenu(false); }}
           >
-            Start
+            Startseite
           </Button>
           <Button 
             variant="ghost" 
-            className="w-full justify-start" 
+            className={`w-full justify-start mb-2 px-4 py-3 rounded-md transition-colors ${
+              currentView === 'about' 
+                ? 'text-green-600 bg-green-50 font-semibold' 
+                : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
+            }`}
+            onClick={() => { setCurrentView('about'); setShowMenu(false); }}
+          >
+            Über uns
+          </Button>
+          <Button 
+            variant="ghost" 
+            className={`w-full justify-start px-4 py-3 rounded-md transition-colors ${
+              currentView === 'info' 
+                ? 'text-green-600 bg-green-50 font-semibold' 
+                : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
+            }`}
             onClick={() => { setCurrentView('info'); setShowMenu(false); }}
           >
-            Info & Einstellungen
+            Informationen
           </Button>
         </div>
       )}
@@ -451,12 +493,80 @@ const Index = () => {
     </div>
   );
 
+  const renderAbout = () => (
+    <div className="min-h-screen bg-gray-50">
+      {renderHeader()}
+      
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <h2 className="text-3xl font-bold text-green-800 mb-8">Über uns</h2>
+        
+        <div className="grid md:grid-cols-1 gap-8">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <Leaf className="w-5 h-5 mr-2 text-green-600" />
+                Unsere Mission
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-gray-600">
+                CleanCity ist eine innovative Bürgerplattform, die es jedem ermöglicht, aktiv zur Sauberkeit und Lebensqualität unserer Stadt beizutragen. Unser Ziel ist es, die Kommunikation zwischen Bürgern und Stadtverwaltung zu vereinfachen und zu beschleunigen.
+              </p>
+              <p className="text-gray-600">
+                Durch die einfache Meldung von überfüllten oder beschädigten Mülleimern helfen Sie dabei, unsere Stadt noch sauberer und lebenswerter zu machen. Jede Meldung zählt und trägt zu einem besseren Zusammenleben bei.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Unser Team</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-600 mb-4">
+                CleanCity wurde in enger Zusammenarbeit mit der Stadtverwaltung und lokalen Bürgerinitiativen entwickelt. Unser Team besteht aus:
+              </p>
+              <ul className="list-disc list-inside space-y-2 text-gray-600">
+                <li>Stadtplanungsexperten</li>
+                <li>Softwareentwicklern</li>
+                <li>UX/UI-Designern</li>
+                <li>Umweltschutzbeauftragten</li>
+              </ul>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Kontakt</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <div className="flex items-center space-x-3">
+                  <Phone className="w-5 h-5 text-green-600" />
+                  <span>+49 (0) 123 456 789</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <Info className="w-5 h-5 text-green-600" />
+                  <span>info@cleancity.de</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <MapPin className="w-5 h-5 text-green-600" />
+                  <span>Rathaus, Hauptstraße 1, 12345 Musterstadt</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+
   const renderInfo = () => (
     <div className="min-h-screen bg-gray-50">
       {renderHeader()}
       
       <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <h2 className="text-3xl font-bold text-green-800 mb-8">Info & Einstellungen</h2>
+        <h2 className="text-3xl font-bold text-green-800 mb-8">Informationen</h2>
         
         <div className="grid md:grid-cols-2 gap-6">
           {/* FAQ */}
@@ -569,6 +679,8 @@ const Index = () => {
       return renderReportForm();
     case 'confirmation':
       return renderConfirmation();
+    case 'about':
+      return renderAbout();
     case 'info':
       return renderInfo();
     default:
