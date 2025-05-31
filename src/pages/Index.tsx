@@ -20,13 +20,13 @@ const Index = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
-  // City images for slideshow
+  // Clean city images for slideshow - focused on urban livability and cleanliness
   const cityImages = [
-    'https://images.unsplash.com/photo-1487958449943-2429e8be8625?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80', // white concrete building
-    'https://images.unsplash.com/photo-1486718448742-163732cd1544?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80', // minimalist brown wavy structure
-    'https://images.unsplash.com/photo-1493397212122-2b85dda8106b?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80', // building with wavy lines
-    'https://images.unsplash.com/photo-1551038247-3d9af20df552?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80', // blue and white building
-    'https://images.unsplash.com/photo-1524230572899-a752b3835840?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80' // white concrete building
+    'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80', // clean city street with bike lanes
+    'https://images.unsplash.com/photo-1480714378408-67cf0d13bc1f?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80', // green urban park with city
+    'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80', // sustainable city with green buildings
+    'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80', // clean modern city square
+    'https://images.unsplash.com/photo-1526958977630-f594b2062e1a?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80' // green urban space with walking paths
   ];
 
   // Slideshow effect
