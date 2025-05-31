@@ -23,10 +23,10 @@ const Index = () => {
   // Clean city images for slideshow - focused on urban livability and cleanliness
   const cityImages = [
     'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80', // clean city street with bike lanes
-    'https://images.unsplash.com/photo-1480714378408-67cf0d13bc1f?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80', // green urban park with city
+    'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80', // beautiful city with green spaces and clean architecture
     'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80', // sustainable city with green buildings
     'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80', // clean modern city square
-    'https://images.unsplash.com/photo-1526958977630-f594b2062e1a?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80' // green urban space with walking paths
+    'https://images.unsplash.com/photo-1514924013411-cbf25faa35bb?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80' // city with green infrastructure and clean environment
   ];
 
   // Slideshow effect
@@ -99,101 +99,110 @@ const Index = () => {
 
   const renderHeader = () => (
     <header className="bg-white shadow-sm border-b border-green-100 sticky top-0 z-50">
-      <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-        {/* Logo */}
-        <div className="flex items-center space-x-2" onClick={() => setCurrentView('home')} style={{ cursor: 'pointer' }}>
-          <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
-            <Leaf className="w-5 h-5 text-white" />
+      <div className="container mx-auto px-4 py-4">
+        <div className="flex items-center justify-between w-full">
+          {/* Logo - Always centered on mobile, left-aligned on desktop */}
+          <div className="flex items-center justify-center md:justify-start flex-1 md:flex-initial">
+            <div 
+              className="flex items-center space-x-2 cursor-pointer" 
+              onClick={() => setCurrentView('home')}
+            >
+              <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
+                <Leaf className="w-5 h-5 text-white" />
+              </div>
+              <h1 className="text-xl font-bold text-green-800">CleanCity</h1>
+            </div>
           </div>
-          <h1 className="text-xl font-bold text-green-800">CleanCity</h1>
+
+          {/* Desktop Navigation */}
+          <nav className="hidden md:flex items-center space-x-6">
+            <Button 
+              variant="ghost" 
+              onClick={() => setCurrentView('home')}
+              className={`px-4 py-2 rounded-md transition-colors ${
+                currentView === 'home' 
+                  ? 'text-green-600 bg-green-50 font-semibold' 
+                  : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
+              }`}
+            >
+              Startseite
+            </Button>
+            <Button 
+              variant="ghost" 
+              onClick={() => setCurrentView('about')}
+              className={`px-4 py-2 rounded-md transition-colors ${
+                currentView === 'about' 
+                  ? 'text-green-600 bg-green-50 font-semibold' 
+                  : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
+              }`}
+            >
+              Über uns
+            </Button>
+            <Button 
+              variant="ghost" 
+              onClick={() => setCurrentView('info')}
+              className={`px-4 py-2 rounded-md transition-colors ${
+                currentView === 'info' 
+                  ? 'text-green-600 bg-green-50 font-semibold' 
+                  : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
+              }`}
+            >
+              Informationen
+            </Button>
+          </nav>
+
+          {/* Mobile Menu Button */}
+          <div className="md:hidden">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowMenu(!showMenu)}
+              className="p-2"
+            >
+              {showMenu ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+            </Button>
+          </div>
         </div>
-
-        {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center space-x-6">
-          <Button 
-            variant="ghost" 
-            onClick={() => setCurrentView('home')}
-            className={`px-4 py-2 rounded-md transition-colors ${
-              currentView === 'home' 
-                ? 'text-green-600 bg-green-50 font-semibold' 
-                : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
-            }`}
-          >
-            Startseite
-          </Button>
-          <Button 
-            variant="ghost" 
-            onClick={() => setCurrentView('about')}
-            className={`px-4 py-2 rounded-md transition-colors ${
-              currentView === 'about' 
-                ? 'text-green-600 bg-green-50 font-semibold' 
-                : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
-            }`}
-          >
-            Über uns
-          </Button>
-          <Button 
-            variant="ghost" 
-            onClick={() => setCurrentView('info')}
-            className={`px-4 py-2 rounded-md transition-colors ${
-              currentView === 'info' 
-                ? 'text-green-600 bg-green-50 font-semibold' 
-                : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
-            }`}
-          >
-            Informationen
-          </Button>
-        </nav>
-
-        {/* Mobile Menu Button */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setShowMenu(!showMenu)}
-          className="md:hidden p-2"
-        >
-          {showMenu ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-        </Button>
+        
+        {/* Mobile Menu */}
+        {showMenu && (
+          <div className="md:hidden bg-white border-t border-green-100 px-4 py-2 shadow-lg mt-4">
+            <Button 
+              variant="ghost" 
+              className={`w-full justify-start mb-2 px-4 py-3 rounded-md transition-colors ${
+                currentView === 'home' 
+                  ? 'text-green-600 bg-green-50 font-semibold' 
+                  : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
+              }`}
+              onClick={() => { setCurrentView('home'); setShowMenu(false); }}
+            >
+              Startseite
+            </Button>
+            <Button 
+              variant="ghost" 
+              className={`w-full justify-start mb-2 px-4 py-3 rounded-md transition-colors ${
+                currentView === 'about' 
+                  ? 'text-green-600 bg-green-50 font-semibold' 
+                  : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
+              }`}
+              onClick={() => { setCurrentView('about'); setShowMenu(false); }}
+            >
+              Über uns
+            </Button>
+            <Button 
+              variant="ghost" 
+              className={`w-full justify-start px-4 py-3 rounded-md transition-colors ${
+                currentView === 'info' 
+                  ? 'text-green-600 bg-green-50 font-semibold' 
+                  : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
+              }`}
+              onClick={() => { setCurrentView('info'); setShowMenu(false); }}
+            >
+              Informationen
+            </Button>
+          </div>
+        )}
       </div>
-      
-      {/* Mobile Menu */}
-      {showMenu && (
-        <div className="md:hidden bg-white border-t border-green-100 px-4 py-2 shadow-lg">
-          <Button 
-            variant="ghost" 
-            className={`w-full justify-start mb-2 px-4 py-3 rounded-md transition-colors ${
-              currentView === 'home' 
-                ? 'text-green-600 bg-green-50 font-semibold' 
-                : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
-            }`}
-            onClick={() => { setCurrentView('home'); setShowMenu(false); }}
-          >
-            Startseite
-          </Button>
-          <Button 
-            variant="ghost" 
-            className={`w-full justify-start mb-2 px-4 py-3 rounded-md transition-colors ${
-              currentView === 'about' 
-                ? 'text-green-600 bg-green-50 font-semibold' 
-                : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
-            }`}
-            onClick={() => { setCurrentView('about'); setShowMenu(false); }}
-          >
-            Über uns
-          </Button>
-          <Button 
-            variant="ghost" 
-            className={`w-full justify-start px-4 py-3 rounded-md transition-colors ${
-              currentView === 'info' 
-                ? 'text-green-600 bg-green-50 font-semibold' 
-                : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
-            }`}
-            onClick={() => { setCurrentView('info'); setShowMenu(false); }}
-          >
-            Informationen
-          </Button>
-        </div>
-      )}
     </header>
   );
 
