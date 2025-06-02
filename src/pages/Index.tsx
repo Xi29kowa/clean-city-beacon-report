@@ -101,21 +101,16 @@ const Index = () => {
     <header className="bg-white shadow-sm border-b border-green-100 sticky top-0 z-50">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between w-full">
-          {/* Logo - Always centered on mobile, left-aligned on desktop */}
-          <div className="flex items-center justify-center md:justify-start flex-1 md:flex-initial">
-            <div 
-              className="flex items-center space-x-2 cursor-pointer" 
-              onClick={() => setCurrentView('home')}
-            >
-              <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
-                <Leaf className="w-5 h-5 text-white" />
-              </div>
-              <h1 className="text-xl font-bold text-green-800">CleanCity</h1>
+          {/* Logo - Fixed positioning for consistency */}
+          <div className="flex items-center space-x-2 cursor-pointer min-w-0 flex-shrink-0" onClick={() => setCurrentView('home')}>
+            <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
+              <Leaf className="w-5 h-5 text-white" />
             </div>
+            <h1 className="text-xl font-bold text-green-800 whitespace-nowrap">CleanCity</h1>
           </div>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-6">
+          {/* Desktop Navigation - Centered */}
+          <nav className="hidden md:flex items-center justify-center flex-1 space-x-6">
             <Button 
               variant="ghost" 
               onClick={() => setCurrentView('home')}
@@ -151,8 +146,8 @@ const Index = () => {
             </Button>
           </nav>
 
-          {/* Mobile Menu Button */}
-          <div className="md:hidden">
+          {/* Mobile Menu Button - Fixed right position */}
+          <div className="md:hidden flex-shrink-0">
             <Button
               variant="ghost"
               size="sm"
@@ -162,6 +157,9 @@ const Index = () => {
               {showMenu ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </Button>
           </div>
+
+          {/* Spacer for desktop to balance logo positioning */}
+          <div className="hidden md:block w-8"></div>
         </div>
         
         {/* Mobile Menu */}
