@@ -615,13 +615,25 @@ const Index = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Button variant="outline" className="w-full justify-start">
+              <Button 
+                variant="outline" 
+                className="w-full justify-start"
+                onClick={() => window.open('/datenschutz', '_blank')}
+              >
                 Datenschutzerklärung
               </Button>
-              <Button variant="outline" className="w-full justify-start">
+              <Button 
+                variant="outline" 
+                className="w-full justify-start"
+                onClick={() => window.open('/impressum', '_blank')}
+              >
                 Impressum
               </Button>
-              <Button variant="outline" className="w-full justify-start">
+              <Button 
+                variant="outline" 
+                className="w-full justify-start"
+                onClick={() => window.open('/nutzungsbedingungen', '_blank')}
+              >
                 Nutzungsbedingungen
               </Button>
               <div className="pt-4 border-t">
