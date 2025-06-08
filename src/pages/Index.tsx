@@ -20,13 +20,13 @@ const Index = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
-  // Clean town and city images for slideshow - focused on cleanliness and livability
+  // Clean town and city images for slideshow - using uploaded images
   const cityImages = [
-    'https://images.unsplash.com/photo-1480714378408-67cf0d13bc1f?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80', // clean European town square with fountains
-    'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80', // beautiful clean city with modern architecture
-    'https://images.unsplash.com/photo-1465146344425-f00d5f5c8f07?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80', // clean small town with green spaces
-    'https://images.unsplash.com/photo-1444723121867-7a241cacace9?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80', // clean coastal town with neat streets
-    'https://images.unsplash.com/photo-1464822759844-d150baec0494?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80'  // clean mountain town with organized layout
+    '/lovable-uploads/6d72ae02-350d-4772-97a8-7c4277724471.png', // clean modern city street with buildings
+    '/lovable-uploads/2ef5a94a-bbdd-4ab8-928b-2eea2b8f4491.png', // tree-lined street with historic architecture
+    '/lovable-uploads/0343eb59-7972-47ca-98cc-2877fdd5f59a.png', // charming European town center with historic tower
+    '/lovable-uploads/2b8fbdcc-e881-4cba-838c-9de31ff24223.png', // clean city street with tram lines and modern buildings
+    '/lovable-uploads/1be0d136-0b07-4c24-b9ef-4a8735691b13.png'  // modern city skyline with clean infrastructure
   ];
 
   // Slideshow effect
