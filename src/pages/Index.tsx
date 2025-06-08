@@ -618,21 +618,21 @@ const Index = () => {
               <Button 
                 variant="outline" 
                 className="w-full justify-start"
-                onClick={() => window.open('/datenschutz', '_blank')}
+                onClick={() => setCurrentView('datenschutz')}
               >
                 Datenschutzerklärung
               </Button>
               <Button 
                 variant="outline" 
                 className="w-full justify-start"
-                onClick={() => window.open('/impressum', '_blank')}
+                onClick={() => setCurrentView('impressum')}
               >
                 Impressum
               </Button>
               <Button 
                 variant="outline" 
                 className="w-full justify-start"
-                onClick={() => window.open('/nutzungsbedingungen', '_blank')}
+                onClick={() => setCurrentView('nutzungsbedingungen')}
               >
                 Nutzungsbedingungen
               </Button>
@@ -692,6 +692,262 @@ const Index = () => {
     </div>
   );
 
+  const renderDatenschutz = () => (
+    <div className="min-h-screen bg-gray-50">
+      {renderHeader()}
+      
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <Card>
+          <CardHeader>
+            <CardTitle>Datenschutzerklärung für CleanCity</CardTitle>
+            <p className="text-gray-600">Stand: Dezember 2024</p>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <section>
+              <h2 className="text-xl font-semibold mb-3">1. Verantwortlicher</h2>
+              <p className="text-gray-700">
+                Verantwortlich für die Datenverarbeitung ist:<br/>
+                Stadtverwaltung Musterstadt<br/>
+                Hauptstraße 1<br/>
+                12345 Musterstadt<br/>
+                E-Mail: datenschutz@musterstadt.de<br/>
+                Telefon: +49 (0) 123 456 789
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-semibold mb-3">2. Erhebung und Verarbeitung personenbezogener Daten</h2>
+              <p className="text-gray-700 mb-3">
+                Bei der Nutzung von CleanCity werden folgende Daten verarbeitet:
+              </p>
+              <ul className="list-disc list-inside space-y-2 text-gray-700">
+                <li>Standortdaten (GPS-Koordinaten) zur Identifizierung der gemeldeten Mülleimer</li>
+                <li>Hochgeladene Fotos zur Dokumentation des Problems</li>
+                <li>Technische Daten wie IP-Adresse und Browser-Informationen</li>
+                <li>Zeitstempel der Meldungen</li>
+              </ul>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-semibold mb-3">3. Zweck der Datenverarbeitung</h2>
+              <p className="text-gray-700">
+                Die erhobenen Daten werden ausschließlich zur Bearbeitung Ihrer Meldungen über problematische Mülleimer verwendet. Die Standortdaten ermöglichen es der Stadtreinigung, den gemeldeten Mülleimer zu finden und das Problem zu beheben.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-semibold mb-3">4. Rechtsgrundlage</h2>
+              <p className="text-gray-700">
+                Die Verarbeitung erfolgt auf Grundlage von Art. 6 Abs. 1 lit. e DSGVO (Wahrnehmung einer Aufgabe im öffentlichen Interesse) zur Gewährleistung der Stadtsauberkeit.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-semibold mb-3">5. Speicherdauer</h2>
+              <p className="text-gray-700">
+                Die Daten werden nur so lange gespeichert, wie es für die Bearbeitung der Meldung erforderlich ist. Nach Behebung des Problems werden die Daten binnen 30 Tagen gelöscht.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-semibold mb-3">6. Ihre Rechte</h2>
+              <p className="text-gray-700 mb-3">
+                Sie haben folgende Rechte bezüglich Ihrer personenbezogener Daten:
+              </p>
+              <ul className="list-disc list-inside space-y-2 text-gray-700">
+                <li>Recht auf Auskunft (Art. 15 DSGVO)</li>
+                <li>Recht auf Berichtigung (Art. 16 DSGVO)</li>
+                <li>Recht auf Löschung (Art. 17 DSGVO)</li>
+                <li>Recht auf Einschränkung der Verarbeitung (Art. 18 DSGVO)</li>
+                <li>Recht auf Beschwerde bei einer Aufsichtsbehörde (Art. 77 DSGVO)</li>
+              </ul>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-semibold mb-3">7. Kontakt</h2>
+              <p className="text-gray-700">
+                Bei Fragen zum Datenschutz wenden Sie sich bitte an unseren Datenschutzbeauftragten unter datenschutz@musterstadt.de.
+              </p>
+            </section>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+
+  const renderImpressum = () => (
+    <div className="min-h-screen bg-gray-50">
+      {renderHeader()}
+      
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <Card>
+          <CardHeader>
+            <CardTitle>Impressum</CardTitle>
+            <p className="text-gray-600">Angaben gemäß § 5 TMG</p>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <section>
+              <h2 className="text-xl font-semibold mb-3">Anbieter</h2>
+              <div className="text-gray-700">
+                <p><strong>Stadtverwaltung Musterstadt</strong></p>
+                <p>Hauptstraße 1</p>
+                <p>12345 Musterstadt</p>
+                <p>Deutschland</p>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-semibold mb-3">Kontakt</h2>
+              <div className="text-gray-700">
+                <p><strong>Telefon:</strong> +49 (0) 123 456 789</p>
+                <p><strong>Fax:</strong> +49 (0) 123 456 790</p>
+                <p><strong>E-Mail:</strong> info@musterstadt.de</p>
+                <p><strong>Website:</strong> www.musterstadt.de</p>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-semibold mb-3">Vertretungsberechtigte</h2>
+              <div className="text-gray-700">
+                <p><strong>Bürgermeister:</strong> Max Mustermann</p>
+                <p><strong>Stellvertretung:</strong> Maria Musterfrau</p>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-semibold mb-3">Umsatzsteuer-Identifikationsnummer</h2>
+              <p className="text-gray-700">
+                Gemäß § 27a Umsatzsteuergesetz: DE123456789
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-semibold mb-3">Aufsichtsbehörde</h2>
+              <div className="text-gray-700">
+                <p>Regierungspräsidium Musterland</p>
+                <p>Kommunalaufsicht</p>
+                <p>Behördenstraße 10</p>
+                <p>12345 Musterland</p>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-semibold mb-3">Verantwortlich für den Inhalt</h2>
+              <div className="text-gray-700">
+                <p>Nach § 55 Abs. 2 RStV:</p>
+                <p><strong>Dr. Sarah Schmidt</strong></p>
+                <p>Leiterin Öffentlichkeitsarbeit</p>
+                <p>Stadtverwaltung Musterstadt</p>
+                <p>Hauptstraße 1</p>
+                <p>12345 Musterstadt</p>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-semibold mb-3">Haftungsausschluss</h2>
+              <div className="text-gray-700 space-y-3">
+                <div>
+                  <h3 className="font-semibold">Inhalt des Onlineangebotes</h3>
+                  <p>Die Stadtverwaltung übernimmt keinerlei Gewähr für die Aktualität, Korrektheit, Vollständigkeit oder Qualität der bereitgestellten Informationen.</p>
+                </div>
+                <div>
+                  <h3 className="font-semibold">Verweise und Links</h3>
+                  <p>Bei direkten oder indirekten Verweisen auf fremde Webseiten, die außerhalb des Verantwortungsbereiches liegen, würde eine Haftungsverpflichtung ausschließlich in dem Fall in Kraft treten, in dem die Stadtverwaltung von den Inhalten Kenntnis hat.</p>
+                </div>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-semibold mb-3">Urheberrecht</h2>
+              <p className="text-gray-700">
+                Die durch die Stadtverwaltung erstellten Inhalte und Werke auf diesen Seiten unterliegen dem deutschen Urheberrecht. Die Vervielfältigung, Bearbeitung, Verbreitung und jede Art der Verwertung außerhalb der Grenzen des Urheberrechtes bedürfen der schriftlichen Zustimmung der Stadtverwaltung.
+              </p>
+            </section>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+
+  const renderNutzungsbedingungen = () => (
+    <div className="min-h-screen bg-gray-50">
+      {renderHeader()}
+      
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <Card>
+          <CardHeader>
+            <CardTitle>Nutzungsbedingungen für CleanCity</CardTitle>
+            <p className="text-gray-600">Stand: Dezember 2024</p>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <section>
+              <h2 className="text-xl font-semibold mb-3">1. Geltungsbereich</h2>
+              <p className="text-gray-700">
+                Diese Nutzungsbedingungen gelten für die Nutzung der CleanCity-Plattform, die von der Stadtverwaltung Musterstadt betrieben wird. Mit der Nutzung der Plattform erkennen Sie diese Bedingungen an.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-semibold mb-3">2. Zweck der Plattform</h2>
+              <p className="text-gray-700">
+                CleanCity dient der Meldung von überfüllten oder beschädigten Mülleimern im Stadtgebiet. Die Plattform ermöglicht eine direkte Kommunikation zwischen Bürgern und der Stadtreinigung.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-semibold mb-3">3. Nutzerverhalten</h2>
+              <p className="text-gray-700 mb-3">
+                Bei der Nutzung von CleanCity verpflichten Sie sich:
+              </p>
+              <ul className="list-disc list-inside space-y-2 text-gray-700">
+                <li>Nur wahrheitsgemäße Meldungen abzugeben</li>
+                <li>Keine missbräuchlichen oder falschen Meldungen zu erstellen</li>
+                <li>Keine beleidigenden oder diskriminierenden Inhalte zu veröffentlichen</li>
+                <li>Die Privatsphäre anderer zu respektieren</li>
+                <li>Keine urheberrechtlich geschützten Inhalte ohne Erlaubnis hochzuladen</li>
+              </ul>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-semibold mb-3">4. Meldungen und Fotos</h2>
+              <p className="text-gray-700">
+                Hochgeladene Fotos sollten ausschließlich den gemeldeten Mülleimer und dessen unmittelbare Umgebung zeigen. Personen sollten nicht erkennbar fotografiert werden. Die Stadtverwaltung behält sich vor, ungeeignete Inhalte zu entfernen.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-semibold mb-3">5. Haftungsausschluss</h2>
+              <p className="text-gray-700">
+                Die Stadtverwaltung übernimmt keine Gewähr für die Vollständigkeit, Richtigkeit oder Aktualität der über CleanCity bereitgestellten Informationen. Eine Haftung für Schäden, die durch die Nutzung der Plattform entstehen, ist ausgeschlossen.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-semibold mb-3">6. Bearbeitungszeiten</h2>
+              <p className="text-gray-700">
+                Die Stadtverwaltung bemüht sich, gemeldete Probleme schnellstmöglich zu bearbeiten. Eine Garantie für bestimmte Bearbeitungszeiten kann jedoch nicht gegeben werden.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-semibold mb-3">7. Änderungen der Nutzungsbedingungen</h2>
+              <p className="text-gray-700">
+                Die Stadtverwaltung behält sich vor, diese Nutzungsbedingungen jederzeit zu ändern. Nutzer werden über wesentliche Änderungen informiert.
+              </p>
+            </section>
+
+            <section>
+              <h2 className="text-xl font-semibold mb-3">8. Kontakt</h2>
+              <p className="text-gray-700">
+                Bei Fragen zu diesen Nutzungsbedingungen wenden Sie sich bitte an: info@musterstadt.de
+              </p>
+            </section>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+
   // Main render logic
   switch (currentView) {
     case 'report':
@@ -702,6 +958,12 @@ const Index = () => {
       return renderAbout();
     case 'info':
       return renderInfo();
+    case 'datenschutz':
+      return renderDatenschutz();
+    case 'impressum':
+      return renderImpressum();
+    case 'nutzungsbedingungen':
+      return renderNutzungsbedingungen();
     default:
       return renderHome();
   }
