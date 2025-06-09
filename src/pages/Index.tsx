@@ -161,7 +161,7 @@ const Index = () => {
   const renderHeader = () => (
     <header className="bg-white shadow-sm border-b border-green-100 sticky top-0 z-50">
       <div className="container mx-auto px-4 py-4">
-        <div className="flex items-center justify-between w-full">
+        <div className="flex items-center justify-between w-full min-h-[48px]">
           {/* Logo - Fixed width to prevent shifting */}
           <div className="flex items-center space-x-2 cursor-pointer w-48 flex-shrink-0" onClick={() => setCurrentView('home')}>
             <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
@@ -176,7 +176,7 @@ const Index = () => {
               <Button 
                 variant="ghost" 
                 onClick={() => setCurrentView('home')}
-                className={`px-4 py-2 rounded-md transition-colors whitespace-nowrap ${
+                className={`px-4 py-2 rounded-md transition-colors whitespace-nowrap min-w-[100px] ${
                   currentView === 'home' 
                     ? 'text-green-600 bg-green-50 font-semibold' 
                     : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
@@ -187,7 +187,7 @@ const Index = () => {
               <Button 
                 variant="ghost" 
                 onClick={() => setCurrentView('about')}
-                className={`px-4 py-2 rounded-md transition-colors whitespace-nowrap ${
+                className={`px-4 py-2 rounded-md transition-colors whitespace-nowrap min-w-[100px] ${
                   currentView === 'about' 
                     ? 'text-green-600 bg-green-50 font-semibold' 
                     : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
@@ -198,7 +198,7 @@ const Index = () => {
               <Button 
                 variant="ghost" 
                 onClick={() => setCurrentView('info')}
-                className={`px-4 py-2 rounded-md transition-colors whitespace-nowrap ${
+                className={`px-4 py-2 rounded-md transition-colors whitespace-nowrap min-w-[100px] ${
                   currentView === 'info' 
                     ? 'text-green-600 bg-green-50 font-semibold' 
                     : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
@@ -213,13 +213,13 @@ const Index = () => {
           <div className="hidden md:flex items-center space-x-3 w-48 justify-end flex-shrink-0">
             <Button
               variant="ghost"
-              className="text-gray-600 hover:text-gray-800 hover:bg-gray-100 px-4 py-2 whitespace-nowrap"
+              className="text-gray-600 hover:text-gray-800 hover:bg-gray-100 px-4 py-2 whitespace-nowrap min-w-[90px]"
             >
               <LogIn className="w-4 h-4 mr-2" />
               Anmelden
             </Button>
             <Button
-              className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 font-medium whitespace-nowrap"
+              className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 font-medium whitespace-nowrap min-w-[120px]"
             >
               <User className="w-4 h-4 mr-2" />
               Registrieren
@@ -232,7 +232,7 @@ const Index = () => {
               variant="ghost"
               size="sm"
               onClick={() => setShowMenu(!showMenu)}
-              className="p-2"
+              className="p-2 w-10 h-10"
             >
               {showMenu ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </Button>
