@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Camera, MapPin, Leaf, CheckCircle, ArrowRight, Upload, Menu, X, Info, Shield, Phone, User, LogIn } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -22,8 +21,40 @@ const Index = () => {
   const [addressSuggestions, setAddressSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [reportCount, setReportCount] = useState(2318);
+  const [displayCount, setDisplayCount] = useState(2318);
+  const [processedCount, setProcessedCount] = useState(1847);
+  const [inProgressCount, setInProgressCount] = useState(471);
   const inputRef = useRef(null);
   const { toast } = useToast();
+
+  // Animation function for counter
+  const animateCounter = (start, end, duration = 1000) => {
+    const startTime = Date.now();
+    const range = end - start;
+    
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Easing function for smooth animation
+      const easeOut = 1 - Math.pow(1 - progress, 3);
+      const current = Math.round(start + range * easeOut);
+      
+      setDisplayCount(current);
+      
+      if (progress === 1) {
+        clearInterval(timer);
+      }
+    }, 16); // ~60fps
+  };
+
+  // Update counter when reportCount changes
+  useEffect(() => {
+    if (displayCount !== reportCount) {
+      animateCounter(displayCount, reportCount);
+    }
+  }, [reportCount]);
 
   // Clean town and city images for slideshow - using uploaded images
   const cityImages = [
@@ -153,6 +184,9 @@ const Index = () => {
     // Simulation der Übermittlung
     setTimeout(() => {
       setIsSubmitting(false);
+      // Increment the counter when a report is successfully submitted
+      setReportCount(prev => prev + 1);
+      setInProgressCount(prev => prev + 1);
       setCurrentView('confirmation');
       setFormData({ location: '', photo: null, issueType: '', comment: '' });
     }, 2000);
@@ -388,20 +422,22 @@ const Index = () => {
         </div>
       </section>
 
-      {/* Impact Counter */}
+      {/* Impact Counter with Animation */}
       <section className="px-4 py-12 bg-green-50">
         <div className="container mx-auto max-w-2xl text-center">
           <h3 className="text-2xl font-bold text-green-800 mb-4">Unser gemeinsamer Erfolg</h3>
           <div className="bg-white rounded-xl p-8 shadow-sm">
-            <div className="text-4xl font-bold text-green-600 mb-2">2.318</div>
+            <div className="text-4xl font-bold text-green-600 mb-2 transition-all duration-300">
+              {displayCount.toLocaleString('de-DE')}
+            </div>
             <p className="text-gray-600">Mülleimer bereits gemeldet</p>
             <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
               <div>
-                <div className="font-semibold text-blue-600">1.847</div>
+                <div className="font-semibold text-blue-600">{processedCount.toLocaleString('de-DE')}</div>
                 <div className="text-gray-500">Bereits bearbeitet</div>
               </div>
               <div>
-                <div className="font-semibold text-orange-600">471</div>
+                <div className="font-semibold text-orange-600">{inProgressCount.toLocaleString('de-DE')}</div>
                 <div className="text-gray-500">In Bearbeitung</div>
               </div>
             </div>
