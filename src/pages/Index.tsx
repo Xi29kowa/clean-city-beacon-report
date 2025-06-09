@@ -162,62 +162,64 @@ const Index = () => {
     <header className="bg-white shadow-sm border-b border-green-100 sticky top-0 z-50">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center justify-between w-full">
-          {/* Logo - Fixed positioning for consistency */}
-          <div className="flex items-center space-x-2 cursor-pointer min-w-0 flex-shrink-0" onClick={() => setCurrentView('home')}>
+          {/* Logo - Fixed width to prevent shifting */}
+          <div className="flex items-center space-x-2 cursor-pointer w-48 flex-shrink-0" onClick={() => setCurrentView('home')}>
             <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
               <Leaf className="w-5 h-5 text-white" />
             </div>
             <h1 className="text-xl font-bold text-green-800 whitespace-nowrap">CleanCity</h1>
           </div>
 
-          {/* Desktop Navigation - Centered */}
-          <nav className="hidden md:flex items-center justify-center flex-1 space-x-6">
-            <Button 
-              variant="ghost" 
-              onClick={() => setCurrentView('home')}
-              className={`px-4 py-2 rounded-md transition-colors ${
-                currentView === 'home' 
-                  ? 'text-green-600 bg-green-50 font-semibold' 
-                  : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
-              }`}
-            >
-              Startseite
-            </Button>
-            <Button 
-              variant="ghost" 
-              onClick={() => setCurrentView('about')}
-              className={`px-4 py-2 rounded-md transition-colors ${
-                currentView === 'about' 
-                  ? 'text-green-600 bg-green-50 font-semibold' 
-                  : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
-              }`}
-            >
-              Über uns
-            </Button>
-            <Button 
-              variant="ghost" 
-              onClick={() => setCurrentView('info')}
-              className={`px-4 py-2 rounded-md transition-colors ${
-                currentView === 'info' 
-                  ? 'text-green-600 bg-green-50 font-semibold' 
-                  : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
-              }`}
-            >
-              Informationen
-            </Button>
+          {/* Desktop Navigation - Centered with fixed spacing */}
+          <nav className="hidden md:flex items-center justify-center flex-1 max-w-md mx-auto">
+            <div className="flex items-center space-x-8">
+              <Button 
+                variant="ghost" 
+                onClick={() => setCurrentView('home')}
+                className={`px-4 py-2 rounded-md transition-colors whitespace-nowrap ${
+                  currentView === 'home' 
+                    ? 'text-green-600 bg-green-50 font-semibold' 
+                    : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
+                }`}
+              >
+                Startseite
+              </Button>
+              <Button 
+                variant="ghost" 
+                onClick={() => setCurrentView('about')}
+                className={`px-4 py-2 rounded-md transition-colors whitespace-nowrap ${
+                  currentView === 'about' 
+                    ? 'text-green-600 bg-green-50 font-semibold' 
+                    : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
+                }`}
+              >
+                Über uns
+              </Button>
+              <Button 
+                variant="ghost" 
+                onClick={() => setCurrentView('info')}
+                className={`px-4 py-2 rounded-md transition-colors whitespace-nowrap ${
+                  currentView === 'info' 
+                    ? 'text-green-600 bg-green-50 font-semibold' 
+                    : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
+                }`}
+              >
+                Informationen
+              </Button>
+            </div>
           </nav>
 
-          {/* Login/Register Buttons - Desktop */}
-          <div className="hidden md:flex items-center space-x-3 flex-shrink-0">
+          {/* Login/Register Buttons - Fixed width to prevent shifting */}
+          <div className="hidden md:flex items-center space-x-3 w-48 justify-end flex-shrink-0">
             <Button
               variant="ghost"
-              className="text-gray-600 hover:text-gray-800 hover:bg-gray-100 px-4 py-2"
+              className="text-gray-600 hover:text-gray-800 hover:bg-gray-100 px-4 py-2 whitespace-nowrap"
             >
               <LogIn className="w-4 h-4 mr-2" />
               Anmelden
             </Button>
             <Button
-              className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 font-medium"
+              className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 font-medium whitespace-nowrap"
             >
               <User className="w-4 h-4 mr-2" />
               Registrieren
