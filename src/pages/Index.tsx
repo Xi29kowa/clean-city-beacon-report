@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import UserDropdown from "@/components/UserDropdown";
 
 const Index = () => {
   const [currentView, setCurrentView] = useState('home');
@@ -243,21 +244,9 @@ const Index = () => {
             </div>
           </nav>
 
-          {/* Login/Register Buttons - Fixed width to prevent shifting */}
-          <div className="hidden md:flex items-center space-x-3 w-48 justify-end flex-shrink-0">
-            <Button
-              variant="ghost"
-              className="text-gray-600 hover:text-gray-800 hover:bg-gray-100 px-4 py-2 whitespace-nowrap min-w-[90px]"
-            >
-              <LogIn className="w-4 h-4 mr-2" />
-              Anmelden
-            </Button>
-            <Button
-              className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 font-medium whitespace-nowrap min-w-[120px]"
-            >
-              <User className="w-4 h-4 mr-2" />
-              Registrieren
-            </Button>
+          {/* User Dropdown - Fixed width to prevent shifting */}
+          <div className="hidden md:flex items-center justify-end w-48 flex-shrink-0">
+            <UserDropdown />
           </div>
 
           {/* Mobile Menu Button - Fixed right position */}
@@ -310,7 +299,7 @@ const Index = () => {
               Informationen
             </Button>
             
-            {/* Mobile Login/Register */}
+            {/* Mobile User Menu */}
             <div className="border-t border-gray-200 pt-4 space-y-2">
               <Button
                 variant="ghost"
@@ -321,7 +310,8 @@ const Index = () => {
                 Anmelden
               </Button>
               <Button
-                className="w-full bg-green-500 hover:bg-green-600 text-white font-medium"
+                variant="ghost"
+                className="w-full justify-start text-gray-600 hover:text-gray-800 hover:bg-gray-100"
                 onClick={() => setShowMenu(false)}
               >
                 <User className="w-4 h-4 mr-2" />
@@ -467,7 +457,7 @@ const Index = () => {
               {/* Enhanced Location Input */}
               <div className="relative">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  📍 Standort
+                  📍 Standort *
                 </label>
                 <div className="flex space-x-2">
                   <div className="relative flex-1">
