@@ -733,7 +733,7 @@ const Index = () => {
     <div className="min-h-screen bg-gray-50">
       {renderHeader()}
       
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+      <div className="container mx-auto px-4 py-16 max-w-4xl">
         <h2 className="text-3xl font-bold text-green-800 mb-8">Informationen</h2>
         
         <div className="grid md:grid-cols-2 gap-6">
@@ -1013,7 +1013,7 @@ const Index = () => {
                 </div>
                 <div>
                   <h3 className="font-semibold">Verweise und Links</h3>
-                  <p>Bei direkten oder indirekten Verweisen auf fremde Webseiten, die außerhalb des Verantwortungsbereiches liegen, würde eine Haftungsverpflichtung ausschließlich in dem Fall in Kraft treten, in dem die Stadtverwaltung von den Inhalten Kenntnis hat.</p>
+                  <p>Bei direkten oder indirekten Verweisen auf fremde Webseiten, die außerhalb des Verantwortungsbereiches liegen, würde eine Haftung für Schäden, die durch die Nutzung der Plattform entstehen, ausgeschlossen.</p>
                 </div>
               </div>
             </section>
