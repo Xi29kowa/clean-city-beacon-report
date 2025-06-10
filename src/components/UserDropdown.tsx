@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { User, LogIn, UserPlus, X } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -15,9 +14,9 @@ const UserDropdown = () => {
   const [showForm, setShowForm] = useState(false);
   const [formType, setFormType] = useState<'login' | 'register'>('login');
   const [formData, setFormData] = useState({
-    name: '',
     email: '',
-    password: ''
+    password: '',
+    confirmPassword: ''
   });
 
   const handleFormSubmit = (e: React.FormEvent) => {
@@ -25,7 +24,7 @@ const UserDropdown = () => {
     // Handle form submission here
     console.log(`${formType} form submitted:`, formData);
     setShowForm(false);
-    setFormData({ name: '', email: '', password: '' });
+    setFormData({ email: '', password: '', confirmPassword: '' });
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -34,7 +33,12 @@ const UserDropdown = () => {
 
   const switchForm = (type: 'login' | 'register') => {
     setFormType(type);
-    setFormData({ name: '', email: '', password: '' });
+    setFormData({ email: '', password: '', confirmPassword: '' });
+  };
+
+  const handleForgotPassword = () => {
+    console.log('Forgot password clicked');
+    // TODO: Implement password reset functionality
   };
 
   if (showForm) {
@@ -66,22 +70,6 @@ const UserDropdown = () => {
           </div>
 
           <form onSubmit={handleFormSubmit} className="space-y-4">
-            {formType === 'register' && (
-              <div>
-                <Label htmlFor="name" className="text-sm font-medium text-gray-700">
-                  Name
-                </Label>
-                <Input
-                  id="name"
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
-                  className="mt-1"
-                  required
-                />
-              </div>
-            )}
-            
             <div>
               <Label htmlFor="email" className="text-sm font-medium text-gray-700">
                 E-Mail
@@ -109,6 +97,22 @@ const UserDropdown = () => {
                 required
               />
             </div>
+
+            {formType === 'register' && (
+              <div>
+                <Label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700">
+                  Passwort bestätigen
+                </Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  value={formData.confirmPassword}
+                  onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
+                  className="mt-1"
+                  required
+                />
+              </div>
+            )}
             
             <Button
               type="submit"
@@ -116,6 +120,17 @@ const UserDropdown = () => {
             >
               {formType === 'login' ? 'Anmelden' : 'Registrieren'}
             </Button>
+
+            <div className="text-center">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={handleForgotPassword}
+                className="text-sm text-gray-600 hover:text-gray-800 p-0 h-auto font-normal underline"
+              >
+                Passwort vergessen?
+              </Button>
+            </div>
           </form>
           
           <div className="mt-4 text-center">
