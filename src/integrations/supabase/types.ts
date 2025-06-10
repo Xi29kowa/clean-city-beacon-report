@@ -9,7 +9,98 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      bin_reports: {
+        Row: {
+          comment: string | null
+          created_at: string
+          id: string
+          issue_type: string
+          location: string
+          photo_url: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          issue_type: string
+          location: string
+          photo_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          issue_type?: string
+          location?: string
+          photo_url?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      notification_requests: {
+        Row: {
+          bin_report_id: string | null
+          created_at: string
+          email: string
+          id: string
+          notified: boolean
+        }
+        Insert: {
+          bin_report_id?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          notified?: boolean
+        }
+        Update: {
+          bin_report_id?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          notified?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_requests_bin_report_id_fkey"
+            columns: ["bin_report_id"]
+            isOneToOne: false
+            referencedRelation: "bin_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      statistics: {
+        Row: {
+          created_at: string
+          id: number
+          in_progress_reports: number
+          processed_reports: number
+          total_reports: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          in_progress_reports?: number
+          processed_reports?: number
+          total_reports?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          in_progress_reports?: number
+          processed_reports?: number
+          total_reports?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

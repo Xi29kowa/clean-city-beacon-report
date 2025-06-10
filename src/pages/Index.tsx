@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, MapPin, Leaf, CheckCircle, ArrowRight, Upload, Menu, X, Info, Shield, Phone, User, LogIn } from 'lucide-react';
+import { Camera, MapPin, Leaf, CheckCircle, ArrowRight, Upload, Menu, X, Info, Shield, Phone, User, LogIn, Share2, Copy } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import UserDropdown from "@/components/UserDropdown";
+import NotificationDialog from "@/components/NotificationDialog";
+import { useStatistics } from "@/hooks/useStatistics";
+import { useBinReports } from "@/hooks/useBinReports";
 
 const Index = () => {
   const [currentView, setCurrentView] = useState('home');
@@ -18,16 +21,18 @@ const Index = () => {
     issueType: '',
     comment: ''
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [addressSuggestions, setAddressSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
-  const [reportCount, setReportCount] = useState(0);
   const [displayCount, setDisplayCount] = useState(0);
-  const [processedCount, setProcessedCount] = useState(0);
-  const [inProgressCount, setInProgressCount] = useState(0);
+  const [currentReportId, setCurrentReportId] = useState<string | null>(null);
+  const [showNotificationDialog, setShowNotificationDialog] = useState(false);
   const inputRef = useRef(null);
   const { toast } = useToast();
+
+  // Use the statistics hook
+  const { statistics, loading: statsLoading } = useStatistics();
+  const { submitReport, submitNotificationRequest, isSubmitting } = useBinReports();
 
   // Animation function for counter
   const animateCounter = (start, end, duration = 1000) => {
@@ -50,20 +55,20 @@ const Index = () => {
     }, 16); // ~60fps
   };
 
-  // Update counter when reportCount changes
+  // Update counter when statistics change
   useEffect(() => {
-    if (displayCount !== reportCount) {
-      animateCounter(displayCount, reportCount);
+    if (!statsLoading && displayCount !== statistics.total_reports) {
+      animateCounter(displayCount, statistics.total_reports);
     }
-  }, [reportCount]);
+  }, [statistics.total_reports, statsLoading]);
 
   // Clean town and city images for slideshow - using uploaded images
   const cityImages = [
-    '/lovable-uploads/6d72ae02-350d-4772-97a8-7c4277724471.png', // clean modern city street with buildings
-    '/lovable-uploads/2ef5a94a-bbdd-4ab8-928b-2eea2b8f4491.png', // tree-lined street with historic architecture
-    '/lovable-uploads/0343eb59-7972-47ca-98cc-2877fdd5f59a.png', // charming European town center with historic tower
-    '/lovable-uploads/2b8fbdcc-e881-4cba-838c-9de31ff24223.png', // clean city street with tram lines and modern buildings
-    '/lovable-uploads/1be0d136-0b07-4c24-b9ef-4a8735691b13.png'  // modern city skyline with clean infrastructure
+    '/lovable-uploads/6d72ae02-350d-4772-97a8-7c4277724471.png',
+    '/lovable-uploads/2ef5a94a-bbdd-4ab8-928b-2eea2b8f4491.png',
+    '/lovable-uploads/0343eb59-7972-47ca-98cc-2877fdd5f59a.png',
+    '/lovable-uploads/2b8fbdcc-e881-4cba-838c-9de31ff24223.png',
+    '/lovable-uploads/1be0d136-0b07-4c24-b9ef-4a8735691b13.png'
   ];
 
   // Slideshow effect
@@ -72,7 +77,7 @@ const Index = () => {
       setCurrentImageIndex((prevIndex) => 
         prevIndex === cityImages.length - 1 ? 0 : prevIndex + 1
       );
-    }, 4000); // Change image every 4 seconds
+    }, 4000);
 
     return () => clearInterval(interval);
   }, [cityImages.length]);
@@ -180,17 +185,66 @@ const Index = () => {
       return;
     }
     
-    setIsSubmitting(true);
-    
-    // Simulation der Übermittlung
-    setTimeout(() => {
-      setIsSubmitting(false);
-      // Increment the counter when a report is successfully submitted
-      setReportCount(prev => prev + 1);
-      setInProgressCount(prev => prev + 1);
+    const reportId = await submitReport({
+      location: formData.location,
+      issue_type: formData.issueType,
+      comment: formData.comment,
+      photo: formData.photo
+    });
+
+    if (reportId) {
+      setCurrentReportId(reportId);
       setCurrentView('confirmation');
       setFormData({ location: '', photo: null, issueType: '', comment: '' });
-    }, 2000);
+      toast({
+        title: "Meldung erfolgreich!",
+        description: "Ihre Meldung wurde an die Stadtreinigung weitergeleitet.",
+      });
+    } else {
+      toast({
+        title: "Fehler beim Senden",
+        description: "Ihre Meldung konnte nicht übermittelt werden. Bitte versuchen Sie es erneut.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleNotificationRequest = async (email: string) => {
+    if (!currentReportId) return false;
+    return await submitNotificationRequest(email, currentReportId);
+  };
+
+  const handleShare = async () => {
+    const url = window.location.href;
+    const title = 'CleanCity - Hilf mit, deine Stadt sauber zu halten!';
+    const text = 'Melde überfüllte oder beschädigte Mülleimer mit CleanCity und sorge für eine saubere Stadt.';
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title,
+          text,
+          url
+        });
+      } catch (error) {
+        console.log('Share cancelled or failed:', error);
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(url);
+        toast({
+          title: "Link kopiert!",
+          description: "Der Link wurde in die Zwischenablage kopiert.",
+        });
+      } catch (error) {
+        console.error('Failed to copy to clipboard:', error);
+        toast({
+          title: "Fehler",
+          description: "Der Link konnte nicht kopiert werden.",
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   const renderHeader = () => (
@@ -418,16 +472,20 @@ const Index = () => {
           <h3 className="text-2xl font-bold text-green-800 mb-4">Unser gemeinsamer Erfolg</h3>
           <div className="bg-white rounded-xl p-8 shadow-sm">
             <div className="text-4xl font-bold text-green-600 mb-2 transition-all duration-300">
-              {displayCount.toLocaleString('de-DE')}
+              {statsLoading ? '...' : displayCount.toLocaleString('de-DE')}
             </div>
             <p className="text-gray-600">Mülleimer bereits gemeldet</p>
             <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
               <div>
-                <div className="font-semibold text-blue-600">{processedCount.toLocaleString('de-DE')}</div>
+                <div className="font-semibold text-blue-600">
+                  {statsLoading ? '...' : statistics.processed_reports.toLocaleString('de-DE')}
+                </div>
                 <div className="text-gray-500">Bereits bearbeitet</div>
               </div>
               <div>
-                <div className="font-semibold text-orange-600">{inProgressCount.toLocaleString('de-DE')}</div>
+                <div className="font-semibold text-orange-600">
+                  {statsLoading ? '...' : statistics.in_progress_reports.toLocaleString('de-DE')}
+                </div>
                 <div className="text-gray-500">In Bearbeitung</div>
               </div>
             </div>
@@ -613,7 +671,11 @@ const Index = () => {
               <p className="text-sm text-blue-600 mb-3">
                 Möchten Sie informiert werden, wenn dieser Mülleimer geleert wurde?
               </p>
-              <Button variant="outline" className="w-full">
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => setShowNotificationDialog(true)}
+              >
                 Ja, benachrichtigen
               </Button>
             </div>
@@ -625,7 +687,12 @@ const Index = () => {
               <p className="text-sm text-green-600 mb-3">
                 Erzählen Sie anderen von CleanCity!
               </p>
-              <Button variant="outline" className="w-full">
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={handleShare}
+              >
+                <Share2 className="w-4 h-4 mr-2" />
                 App teilen
               </Button>
             </div>
@@ -648,6 +715,12 @@ const Index = () => {
           </div>
         </div>
       </div>
+
+      <NotificationDialog
+        isOpen={showNotificationDialog}
+        onClose={() => setShowNotificationDialog(false)}
+        onSubmit={handleNotificationRequest}
+      />
     </div>
   );
 
