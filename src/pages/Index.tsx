@@ -22,10 +22,10 @@ const Index = () => {
   const [addressSuggestions, setAddressSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
-  const [reportCount, setReportCount] = useState(2318);
-  const [displayCount, setDisplayCount] = useState(2318);
-  const [processedCount, setProcessedCount] = useState(1847);
-  const [inProgressCount, setInProgressCount] = useState(471);
+  const [reportCount, setReportCount] = useState(0);
+  const [displayCount, setDisplayCount] = useState(0);
+  const [processedCount, setProcessedCount] = useState(0);
+  const [inProgressCount, setInProgressCount] = useState(0);
   const inputRef = useRef(null);
   const { toast } = useToast();
 

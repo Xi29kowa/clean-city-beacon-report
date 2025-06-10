@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { User, LogIn, UserPlus, X } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -121,16 +122,18 @@ const UserDropdown = () => {
               {formType === 'login' ? 'Anmelden' : 'Registrieren'}
             </Button>
 
-            <div className="text-center">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={handleForgotPassword}
-                className="text-sm text-gray-600 hover:text-gray-800 p-0 h-auto font-normal underline"
-              >
-                Passwort vergessen?
-              </Button>
-            </div>
+            {formType === 'login' && (
+              <div className="text-center">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={handleForgotPassword}
+                  className="text-sm text-gray-600 hover:text-gray-800 p-0 h-auto font-normal underline"
+                >
+                  Passwort vergessen?
+                </Button>
+              </div>
+            )}
           </form>
           
           <div className="mt-4 text-center">
