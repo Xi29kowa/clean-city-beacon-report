@@ -4,7 +4,15 @@ import { MapPin, Loader2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Loader } from '@googlemaps/js-api-loader';
+import L from 'leaflet';
+
+// Fix for default markers in Leaflet
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+});
 
 interface LocationPickerProps {
   value: string;
@@ -16,72 +24,68 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange }) => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
-  const [mapLoaded, setMapLoaded] = useState(false);
   const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<google.maps.Map | null>(null);
-  const markerRef = useRef<google.maps.Marker | null>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const markerRef = useRef<L.Marker | null>(null);
   const { toast } = useToast();
 
-  // Initialize Google Maps
+  // Initialize Leaflet CSS
   useEffect(() => {
-    const initMap = async () => {
-      try {
-        const loader = new Loader({
-          apiKey: 'YOUR_GOOGLE_MAPS_API_KEY', // You'll need to add your API key
-          version: 'weekly',
-          libraries: ['places', 'geocoding']
-        });
-
-        await loader.load();
-        setMapLoaded(true);
-      } catch (error) {
-        console.log('Google Maps API not available, using fallback');
-      }
-    };
-
-    initMap();
+    // Add Leaflet CSS if not already added
+    if (!document.querySelector('link[href*="leaflet"]')) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(link);
+    }
   }, []);
 
   // Create map when coordinates are available
   useEffect(() => {
-    if (mapLoaded && coordinates && mapRef.current) {
-      const map = new google.maps.Map(mapRef.current, {
-        center: coordinates,
-        zoom: 16,
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: false,
-      });
+    if (coordinates && mapRef.current && !mapInstanceRef.current) {
+      const map = L.map(mapRef.current).setView([coordinates.lat, coordinates.lng], 16);
 
-      const marker = new google.maps.Marker({
-        position: coordinates,
-        map: map,
-        draggable: true,
-      });
+      // Add OpenStreetMap tiles
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+      }).addTo(map);
 
-      marker.addListener('dragend', async () => {
-        const position = marker.getPosition();
-        if (position) {
-          const newCoords = { lat: position.lat(), lng: position.lng() };
-          setCoordinates(newCoords);
-          
-          // Reverse geocode the new position
-          const geocoder = new google.maps.Geocoder();
-          try {
-            const response = await geocoder.geocode({ location: newCoords });
-            if (response.results[0]) {
-              onChange(response.results[0].formatted_address, newCoords);
-            }
-          } catch (error) {
-            console.error('Reverse geocoding failed:', error);
+      // Add draggable marker
+      const marker = L.marker([coordinates.lat, coordinates.lng], { draggable: true }).addTo(map);
+
+      // Handle marker drag
+      marker.on('dragend', async () => {
+        const position = marker.getLatLng();
+        const newCoords = { lat: position.lat, lng: position.lng };
+        setCoordinates(newCoords);
+        
+        // Reverse geocode the new position using Nominatim
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.lat}&lon=${position.lng}&addressdetails=1`
+          );
+          const data = await response.json();
+          if (data.display_name) {
+            onChange(data.display_name, newCoords);
           }
+        } catch (error) {
+          console.error('Reverse geocoding failed:', error);
+          onChange(`${position.lat.toFixed(6)}, ${position.lng.toFixed(6)}`, newCoords);
         }
       });
 
       mapInstanceRef.current = map;
       markerRef.current = marker;
     }
-  }, [mapLoaded, coordinates, onChange]);
+  }, [coordinates, onChange]);
+
+  // Update marker position when coordinates change
+  useEffect(() => {
+    if (coordinates && mapInstanceRef.current && markerRef.current) {
+      markerRef.current.setLatLng([coordinates.lat, coordinates.lng]);
+      mapInstanceRef.current.setView([coordinates.lat, coordinates.lng], 16);
+    }
+  }, [coordinates]);
 
   // Enhanced address autocomplete using Nominatim
   const searchAddresses = async (query: string) => {
@@ -135,22 +139,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange }) => {
         setCoordinates(coords);
 
         try {
-          // Try Google Maps reverse geocoding first if available
-          if (mapLoaded && window.google) {
-            const geocoder = new google.maps.Geocoder();
-            const response = await geocoder.geocode({ location: coords });
-            if (response.results[0]) {
-              onChange(response.results[0].formatted_address, coords);
-              setIsGettingLocation(false);
-              toast({
-                title: "Standort erfasst!",
-                description: `Genauigkeit: ±${Math.round(position.coords.accuracy)}m`,
-              });
-              return;
-            }
-          }
-
-          // Fallback to Nominatim
+          // Use Nominatim for reverse geocoding
           const response = await fetch(
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`
           );
@@ -275,16 +264,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange }) => {
             ref={mapRef}
             className="w-full h-48 bg-gray-100 rounded-lg border"
             style={{ minHeight: '192px' }}
-          >
-            {!mapLoaded && (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-gray-400" />
-                  <p className="text-sm text-gray-500">Karte wird geladen...</p>
-                </div>
-              </div>
-            )}
-          </div>
+          />
           <p className="text-xs text-gray-500">
             📌 Sie können den Marker auf der Karte verschieben, um die Position anzupassen
           </p>
