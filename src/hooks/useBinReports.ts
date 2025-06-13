@@ -7,6 +7,7 @@ interface BinReportData {
   issue_type: string;
   comment?: string;
   photo?: File | null;
+  partner_municipality?: string;
 }
 
 export const useBinReports = () => {
@@ -45,6 +46,7 @@ export const useBinReports = () => {
           issue_type: reportData.issue_type,
           comment: reportData.comment || null,
           photo_url: photoUrl,
+          partner_municipality: reportData.partner_municipality || null,
           status: 'in_progress'
         })
         .select('id')

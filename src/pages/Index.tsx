@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import UserDropdown from "@/components/UserDropdown";
 import NotificationDialog from "@/components/NotificationDialog";
+import LocationPicker from "@/components/LocationPicker";
 import { useStatistics } from "@/hooks/useStatistics";
 import { useBinReports } from "@/hooks/useBinReports";
 
@@ -19,8 +20,10 @@ const Index = () => {
     location: '',
     photo: null,
     issueType: '',
-    comment: ''
+    comment: '',
+    partnerMunicipality: ''
   });
+  const [locationCoordinates, setLocationCoordinates] = useState<{ lat: number; lng: number } | null>(null);
   const [addressSuggestions, setAddressSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
@@ -33,6 +36,13 @@ const Index = () => {
   // Use the statistics hook
   const { statistics, loading: statsLoading } = useStatistics();
   const { submitReport, submitNotificationRequest, isSubmitting } = useBinReports();
+
+  // Partner municipalities list
+  const partnerMunicipalities = [
+    { value: 'nuernberg', label: 'Nürnberg' },
+    { value: 'erlangen', label: 'Erlangen' },
+    { value: 'fuerth', label: 'Fürth' }
+  ];
 
   // Animation function for counter
   const animateCounter = (start, end, duration = 1000) => {
@@ -82,84 +92,10 @@ const Index = () => {
     return () => clearInterval(interval);
   }, [cityImages.length]);
 
-  // Enhanced address autocomplete using Nominatim (OpenStreetMap)
-  const searchAddresses = async (query) => {
-    if (query.length < 3) {
-      setAddressSuggestions([]);
-      return;
-    }
-
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=5&q=${encodeURIComponent(query)}, Deutschland`
-      );
-      const data = await response.json();
-      
-      const suggestions = data.map(item => ({
-        display_name: item.display_name,
-        lat: item.lat,
-        lon: item.lon
-      }));
-      
-      setAddressSuggestions(suggestions);
-      setShowSuggestions(true);
-    } catch (error) {
-      console.error('Error fetching address suggestions:', error);
-    }
-  };
-
-  // Reverse geocoding to get address from coordinates
-  const reverseGeocode = async (lat, lon) => {
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`
-      );
-      const data = await response.json();
-      return data.display_name || `${lat}, ${lon}`;
-    } catch (error) {
-      console.error('Error reverse geocoding:', error);
-      return `${lat}, ${lon}`;
-    }
-  };
-
-  const handleLocationInput = (e) => {
-    const value = e.target.value;
-    setFormData(prev => ({ ...prev, location: value }));
-    searchAddresses(value);
-  };
-
-  const handleSuggestionClick = (suggestion) => {
-    setFormData(prev => ({ ...prev, location: suggestion.display_name }));
-    setShowSuggestions(false);
-    setAddressSuggestions([]);
-  };
-
-  const handleLocationCapture = () => {
-    if (navigator.geolocation) {
-      setIsGettingLocation(true);
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const { latitude, longitude } = position.coords;
-          const address = await reverseGeocode(latitude, longitude);
-          setFormData(prev => ({ 
-            ...prev, 
-            location: address
-          }));
-          setIsGettingLocation(false);
-          toast({
-            title: "Standort erfasst!",
-            description: "GPS-Koordinaten wurden zu Ihrer Meldung hinzugefügt.",
-          });
-        },
-        (error) => {
-          setIsGettingLocation(false);
-          toast({
-            title: "Standortzugriff verweigert",
-            description: "Bitte geben Sie den Standort manuell ein.",
-            variant: "destructive",
-          });
-        }
-      );
+  const handleLocationChange = (location: string, coordinates?: { lat: number; lng: number }) => {
+    setFormData(prev => ({ ...prev, location }));
+    if (coordinates) {
+      setLocationCoordinates(coordinates);
     }
   };
 
@@ -189,13 +125,15 @@ const Index = () => {
       location: formData.location,
       issue_type: formData.issueType,
       comment: formData.comment,
-      photo: formData.photo
+      photo: formData.photo,
+      partner_municipality: formData.partnerMunicipality
     });
 
     if (reportId) {
       setCurrentReportId(reportId);
       setCurrentView('confirmation');
-      setFormData({ location: '', photo: null, issueType: '', comment: '' });
+      setFormData({ location: '', photo: null, issueType: '', comment: '', partnerMunicipality: '' });
+      setLocationCoordinates(null);
       toast({
         title: "Meldung erfolgreich!",
         description: "Ihre Meldung wurde an die Stadtreinigung weitergeleitet.",
@@ -512,57 +450,35 @@ const Index = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Enhanced Location Input */}
-              <div className="relative">
+              {/* Enhanced Location Input with Map */}
+              <LocationPicker
+                value={formData.location}
+                onChange={handleLocationChange}
+              />
+
+              {/* Partner Municipality Dropdown */}
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  📍 Standort *
+                  🏛️ Partner Stadtverwaltung (optional)
                 </label>
-                <div className="flex space-x-2">
-                  <div className="relative flex-1">
-                    <Input
-                      ref={inputRef}
-                      placeholder="Adresse oder GPS-Koordinaten"
-                      value={formData.location}
-                      onChange={handleLocationInput}
-                      onFocus={() => setShowSuggestions(addressSuggestions.length > 0)}
-                      onBlur={() => {
-                        // Delay hiding suggestions to allow clicking
-                        setTimeout(() => setShowSuggestions(false), 200);
-                      }}
-                      className="flex-1"
-                    />
-                    
-                    {/* Address Suggestions Dropdown */}
-                    {showSuggestions && addressSuggestions.length > 0 && (
-                      <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
-                        {addressSuggestions.map((suggestion, index) => (
-                          <button
-                            key={index}
-                            type="button"
-                            className="w-full text-left px-4 py-2 hover:bg-gray-100 border-b border-gray-100 last:border-b-0"
-                            onClick={() => handleSuggestionClick(suggestion)}
-                          >
-                            <div className="text-sm text-gray-800">{suggestion.display_name}</div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <Button
-                    type="button"
-                    onClick={handleLocationCapture}
-                    variant="outline"
-                    className="whitespace-nowrap"
-                    disabled={isGettingLocation}
-                  >
-                    {isGettingLocation ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-500"></div>
-                    ) : (
-                      <MapPin className="w-4 h-4 mr-1" />
-                    )}
-                    GPS
-                  </Button>
-                </div>
+                <Select 
+                  value={formData.partnerMunicipality} 
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, partnerMunicipality: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Wählen Sie eine Partnerstadt aus" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {partnerMunicipalities.map((municipality) => (
+                      <SelectItem key={municipality.value} value={municipality.value}>
+                        {municipality.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Wählen Sie die zuständige Stadtverwaltung aus, falls bekannt
+                </p>
               </div>
 
               {/* Foto Upload */}

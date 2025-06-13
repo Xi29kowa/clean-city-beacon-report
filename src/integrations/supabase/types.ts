@@ -16,6 +16,7 @@ export type Database = {
           id: string
           issue_type: string
           location: string
+          partner_municipality: string | null
           photo_url: string | null
           status: string
           updated_at: string
@@ -26,6 +27,7 @@ export type Database = {
           id?: string
           issue_type: string
           location: string
+          partner_municipality?: string | null
           photo_url?: string | null
           status?: string
           updated_at?: string
@@ -36,6 +38,7 @@ export type Database = {
           id?: string
           issue_type?: string
           location?: string
+          partner_municipality?: string | null
           photo_url?: string | null
           status?: string
           updated_at?: string
