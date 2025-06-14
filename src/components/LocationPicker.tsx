@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { MapPin, Loader2 } from 'lucide-react';
+import { MapPin, Loader2, Eye, EyeOff } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -17,17 +17,28 @@ L.Icon.Default.mergeOptions({
 interface LocationPickerProps {
   value: string;
   onChange: (location: string, coordinates?: { lat: number; lng: number }) => void;
+  onPartnerMunicipalityChange?: (municipality: string | null) => void;
 }
 
-const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange }) => {
+const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, onPartnerMunicipalityChange }) => {
   const [addressSuggestions, setAddressSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [coordinates, setCoordinates] = useState<{ lat: number; lng: number } | null>(null);
+  const [showMap, setShowMap] = useState(true);
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
   const { toast } = useToast();
+
+  // Partner municipalities mapping
+  const partnerMunicipalities = {
+    'nürnberg': 'nuernberg',
+    'nuremberg': 'nuernberg', 
+    'erlangen': 'erlangen',
+    'fürth': 'fuerth',
+    'fuerth': 'fuerth'
+  };
 
   // Initialize Leaflet CSS
   useEffect(() => {
@@ -40,9 +51,9 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange }) => {
     }
   }, []);
 
-  // Create map when coordinates are available
+  // Create map when coordinates are available and map should be shown
   useEffect(() => {
-    if (coordinates && mapRef.current && !mapInstanceRef.current) {
+    if (coordinates && mapRef.current && !mapInstanceRef.current && showMap) {
       const map = L.map(mapRef.current).setView([coordinates.lat, coordinates.lng], 16);
 
       // Add OpenStreetMap tiles
@@ -67,6 +78,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange }) => {
           const data = await response.json();
           if (data.display_name) {
             onChange(data.display_name, newCoords);
+            checkPartnerMunicipality(data.display_name);
           }
         } catch (error) {
           console.error('Reverse geocoding failed:', error);
@@ -77,7 +89,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange }) => {
       mapInstanceRef.current = map;
       markerRef.current = marker;
     }
-  }, [coordinates, onChange]);
+  }, [coordinates, onChange, showMap]);
 
   // Update marker position when coordinates change
   useEffect(() => {
@@ -86,6 +98,34 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange }) => {
       mapInstanceRef.current.setView([coordinates.lat, coordinates.lng], 16);
     }
   }, [coordinates]);
+
+  // Clean up map when hiding
+  useEffect(() => {
+    if (!showMap && mapInstanceRef.current) {
+      mapInstanceRef.current.remove();
+      mapInstanceRef.current = null;
+      markerRef.current = null;
+    }
+  }, [showMap]);
+
+  // Check if address belongs to partner municipality
+  const checkPartnerMunicipality = (address: string) => {
+    const lowerAddress = address.toLowerCase();
+    let foundMunicipality = null;
+    
+    for (const [cityName, municipalityCode] of Object.entries(partnerMunicipalities)) {
+      if (lowerAddress.includes(cityName)) {
+        foundMunicipality = municipalityCode;
+        break;
+      }
+    }
+    
+    if (onPartnerMunicipalityChange) {
+      onPartnerMunicipalityChange(foundMunicipality);
+    }
+    
+    return foundMunicipality;
+  };
 
   // Enhanced address autocomplete using Nominatim
   const searchAddresses = async (query: string) => {
@@ -147,6 +187,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange }) => {
           const address = data.display_name || `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
           
           onChange(address, coords);
+          checkPartnerMunicipality(address);
           setIsGettingLocation(false);
           toast({
             title: "Standort erfasst!",
@@ -198,8 +239,13 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange }) => {
     const coords = { lat: suggestion.lat, lng: suggestion.lng };
     setCoordinates(coords);
     onChange(suggestion.display_name, coords);
+    checkPartnerMunicipality(suggestion.display_name);
     setShowSuggestions(false);
     setAddressSuggestions([]);
+  };
+
+  const toggleMap = () => {
+    setShowMap(!showMap);
   };
 
   return (
@@ -221,9 +267,9 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange }) => {
               className="flex-1"
             />
             
-            {/* Address Suggestions Dropdown */}
+            {/* Address Suggestions Dropdown - High z-index to appear above map */}
             {showSuggestions && addressSuggestions.length > 0 && (
-              <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-md shadow-lg z-10 max-h-60 overflow-y-auto">
+              <div className="absolute top-full left-0 right-0 bg-white border border-gray-300 rounded-md shadow-lg z-50 max-h-60 overflow-y-auto">
                 {addressSuggestions.map((suggestion: any, index) => (
                   <button
                     key={index}
@@ -254,20 +300,46 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange }) => {
         </div>
       </div>
 
-      {/* Map Preview */}
+      {/* Map Preview with toggle functionality */}
       {coordinates && (
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-gray-700">
-            🗺️ Standort-Vorschau
-          </label>
-          <div 
-            ref={mapRef}
-            className="w-full h-48 bg-gray-100 rounded-lg border"
-            style={{ minHeight: '192px' }}
-          />
-          <p className="text-xs text-gray-500">
-            📌 Sie können den Marker auf der Karte verschieben, um die Position anzupassen
-          </p>
+          <div className="flex items-center justify-between">
+            <label className="block text-sm font-medium text-gray-700">
+              🗺️ Standort-Vorschau
+            </label>
+            <Button
+              type="button"
+              onClick={toggleMap}
+              variant="outline"
+              size="sm"
+              className="text-xs"
+            >
+              {showMap ? (
+                <>
+                  <EyeOff className="w-3 h-3 mr-1" />
+                  Karte ausblenden
+                </>
+              ) : (
+                <>
+                  <Eye className="w-3 h-3 mr-1" />
+                  Karte anzeigen
+                </>
+              )}
+            </Button>
+          </div>
+          
+          {showMap && (
+            <>
+              <div 
+                ref={mapRef}
+                className="w-full h-48 bg-gray-100 rounded-lg border relative z-10"
+                style={{ minHeight: '192px' }}
+              />
+              <p className="text-xs text-gray-500">
+                📌 Sie können den Marker auf der Karte verschieben, um die Position anzupassen
+              </p>
+            </>
+          )}
         </div>
       )}
     </div>

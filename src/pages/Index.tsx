@@ -30,6 +30,7 @@ const Index = () => {
   const [displayCount, setDisplayCount] = useState(0);
   const [currentReportId, setCurrentReportId] = useState<string | null>(null);
   const [showNotificationDialog, setShowNotificationDialog] = useState(false);
+  const [canSubmitReport, setCanSubmitReport] = useState(false);
   const inputRef = useRef(null);
   const { toast } = useToast();
 
@@ -43,6 +44,15 @@ const Index = () => {
     { value: 'erlangen', label: 'Erlangen' },
     { value: 'fuerth', label: 'Fürth' }
   ];
+
+  // Check if report can be submitted based on partner municipality
+  useEffect(() => {
+    const hasLocation = formData.location?.trim();
+    const hasIssueType = formData.issueType;
+    const hasPartnerMunicipality = formData.partnerMunicipality;
+    
+    setCanSubmitReport(hasLocation && hasIssueType && hasPartnerMunicipality);
+  }, [formData.location, formData.issueType, formData.partnerMunicipality]);
 
   // Animation function for counter
   const animateCounter = (start, end, duration = 1000) => {
@@ -99,6 +109,10 @@ const Index = () => {
     }
   };
 
+  const handlePartnerMunicipalityChange = (municipality: string | null) => {
+    setFormData(prev => ({ ...prev, partnerMunicipality: municipality || '' }));
+  };
+
   const handlePhotoUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -134,6 +148,15 @@ const Index = () => {
       toast({
         title: "Fehlende Angaben", 
         description: "Bitte wählen Sie eine Problemart aus.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!formData.partnerMunicipality) {
+      toast({
+        title: "Standort nicht unterstützt",
+        description: "Leider unterstützen wir derzeit nur Meldungen in ausgewählten Partnerstädten.",
         variant: "destructive",
       });
       return;
@@ -650,19 +673,25 @@ const Index = () => {
               <LocationPicker
                 value={formData.location}
                 onChange={handleLocationChange}
+                onPartnerMunicipalityChange={handlePartnerMunicipalityChange}
               />
 
-              {/* Partner Municipality Dropdown */}
+              {/* Partner Municipality Display */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  🏛️ Partner Stadtverwaltung (optional)
+                  🏛️ Partner Stadtverwaltung
                 </label>
                 <Select 
                   value={formData.partnerMunicipality} 
                   onValueChange={(value) => setFormData(prev => ({ ...prev, partnerMunicipality: value }))}
+                  disabled={true}
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Wählen Sie eine Partnerstadt aus" />
+                  <SelectTrigger className={formData.partnerMunicipality ? "bg-green-50 border-green-200" : "bg-gray-100"}>
+                    <SelectValue placeholder={
+                      formData.partnerMunicipality 
+                        ? partnerMunicipalities.find(p => p.value === formData.partnerMunicipality)?.label
+                        : "Wird automatisch basierend auf der Adresse ausgewählt"
+                    } />
                   </SelectTrigger>
                   <SelectContent>
                     {partnerMunicipalities.map((municipality) => (
@@ -672,9 +701,16 @@ const Index = () => {
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-gray-500 mt-1">
-                  Wählen Sie die zuständige Stadtverwaltung aus, falls bekannt
-                </p>
+                {!formData.partnerMunicipality && formData.location && (
+                  <p className="text-xs text-orange-600 mt-1 bg-orange-50 p-2 rounded">
+                    ⚠️ Leider unterstützen wir derzeit nur Meldungen in ausgewählten Partnerstädten.
+                  </p>
+                )}
+                {formData.partnerMunicipality && (
+                  <p className="text-xs text-green-600 mt-1 bg-green-50 p-2 rounded">
+                    ✅ Zuständige Stadtverwaltung automatisch erkannt
+                  </p>
+                )}
               </div>
 
               {/* Foto Upload */}
@@ -738,8 +774,12 @@ const Index = () => {
               {/* Submit Button */}
               <Button
                 type="submit"
-                disabled={isSubmitting}
-                className="w-full bg-green-500 hover:bg-green-600 py-3 text-lg"
+                disabled={isSubmitting || !canSubmitReport}
+                className={`w-full py-3 text-lg ${
+                  canSubmitReport 
+                    ? "bg-green-500 hover:bg-green-600" 
+                    : "bg-gray-300 cursor-not-allowed"
+                }`}
               >
                 {isSubmitting ? (
                   <div className="flex items-center">
@@ -747,7 +787,7 @@ const Index = () => {
                     Wird gesendet...
                   </div>
                 ) : (
-                  'Meldung absenden'
+                  canSubmitReport ? 'Meldung absenden' : 'Standort in Partnerstadt erforderlich'
                 )}
               </Button>
             </form>
