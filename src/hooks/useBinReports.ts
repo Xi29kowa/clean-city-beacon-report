@@ -5,9 +5,9 @@ import { supabase } from '@/integrations/supabase/client';
 interface BinReportData {
   location: string;
   issue_type: string;
-  comment?: string;
+  comment?: string | null;
   photo?: File | null;
-  partner_municipality?: string;
+  partner_municipality?: string | null;
 }
 
 export const useBinReports = () => {
@@ -17,10 +17,13 @@ export const useBinReports = () => {
     setIsSubmitting(true);
     
     try {
+      console.log('Starting report submission with data:', reportData);
+      
       let photoUrl = null;
 
       // Upload photo if provided
       if (reportData.photo) {
+        console.log('Uploading photo:', reportData.photo.name);
         const fileExt = reportData.photo.name.split('.').pop();
         const fileName = `${Date.now()}.${fileExt}`;
         
@@ -35,28 +38,41 @@ export const useBinReports = () => {
             .from('bin-photos')
             .getPublicUrl(fileName);
           photoUrl = publicUrl;
+          console.log('Photo uploaded successfully:', photoUrl);
         }
       }
+
+      // Prepare data for insertion
+      const insertData = {
+        location: reportData.location.trim(),
+        issue_type: reportData.issue_type,
+        comment: reportData.comment?.trim() || null,
+        photo_url: photoUrl,
+        partner_municipality: reportData.partner_municipality || null,
+        status: 'in_progress'
+      };
+
+      console.log('Inserting report data:', insertData);
 
       // Insert the bin report
       const { data, error } = await supabase
         .from('bin_reports')
-        .insert({
-          location: reportData.location,
-          issue_type: reportData.issue_type,
-          comment: reportData.comment || null,
-          photo_url: photoUrl,
-          partner_municipality: reportData.partner_municipality || null,
-          status: 'in_progress'
-        })
+        .insert(insertData)
         .select('id')
         .single();
 
       if (error) {
         console.error('Error submitting report:', error);
+        console.error('Error details:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
         return null;
       }
 
+      console.log('Report submitted successfully:', data);
       return data.id;
     } catch (error) {
       console.error('Error submitting report:', error);
@@ -68,6 +84,8 @@ export const useBinReports = () => {
 
   const submitNotificationRequest = async (email: string, binReportId: string) => {
     try {
+      console.log('Submitting notification request for:', { email, binReportId });
+      
       const { error } = await supabase
         .from('notification_requests')
         .insert({
@@ -81,6 +99,7 @@ export const useBinReports = () => {
         return false;
       }
 
+      console.log('Notification request submitted successfully');
       return true;
     } catch (error) {
       console.error('Error submitting notification request:', error);

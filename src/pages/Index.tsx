@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, MapPin, Leaf, CheckCircle, ArrowRight, Upload, Menu, X, Info, Shield, Phone, User, LogIn, Share2, Copy } from 'lucide-react';
+import { Camera, MapPin, Leaf, CheckCircle, ArrowRight, Upload, Menu, X, Info, Shield, Phone, User, LogIn, Share2, Copy, Wifi, Battery, Zap, Database, Monitor } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -112,21 +112,39 @@ const Index = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.location || !formData.issueType) {
+    
+    console.log('Form submission started with data:', {
+      location: formData.location,
+      issueType: formData.issueType,
+      comment: formData.comment,
+      photo: formData.photo?.name || 'none',
+      partnerMunicipality: formData.partnerMunicipality
+    });
+    
+    if (!formData.location?.trim()) {
       toast({
         title: "Fehlende Angaben",
-        description: "Bitte füllen Sie mindestens Standort und Problemart aus.",
+        description: "Bitte geben Sie einen Standort an.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!formData.issueType) {
+      toast({
+        title: "Fehlende Angaben", 
+        description: "Bitte wählen Sie eine Problemart aus.",
         variant: "destructive",
       });
       return;
     }
     
     const reportId = await submitReport({
-      location: formData.location,
+      location: formData.location.trim(),
       issue_type: formData.issueType,
-      comment: formData.comment,
+      comment: formData.comment?.trim() || null,
       photo: formData.photo,
-      partner_municipality: formData.partnerMunicipality
+      partner_municipality: formData.partnerMunicipality || null
     });
 
     if (reportId) {
@@ -198,8 +216,14 @@ const Index = () => {
           </div>
 
           {/* Desktop Navigation - Centered with fixed spacing */}
-          <nav className="hidden md:flex items-center justify-center flex-1 max-w-md mx-auto">
-            <div className="flex items-center space-x-8">
+          <nav className="hidden md:flex items-center justify-center flex-1 max-w-2xl mx-auto">
+            <div className="flex items-center space-x-6">
+              <Button 
+                onClick={() => setCurrentView('report')}
+                className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-full font-semibold shadow-md transform transition hover:scale-105"
+              >
+                Mülleimer melden
+              </Button>
               <Button 
                 variant="ghost" 
                 onClick={() => setCurrentView('home')}
@@ -210,6 +234,17 @@ const Index = () => {
                 }`}
               >
                 Startseite
+              </Button>
+              <Button 
+                variant="ghost" 
+                onClick={() => setCurrentView('products')}
+                className={`px-4 py-2 rounded-md transition-colors whitespace-nowrap min-w-[100px] ${
+                  currentView === 'products' 
+                    ? 'text-green-600 bg-green-50 font-semibold' 
+                    : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
+                }`}
+              >
+                Produkte
               </Button>
               <Button 
                 variant="ghost" 
@@ -258,6 +293,12 @@ const Index = () => {
         {showMenu && (
           <div className="md:hidden bg-white border-t border-green-100 px-4 py-2 shadow-lg mt-4">
             <Button 
+              className="w-full bg-green-500 hover:bg-green-600 text-white mb-4 py-3 rounded-md font-semibold"
+              onClick={() => { setCurrentView('report'); setShowMenu(false); }}
+            >
+              Mülleimer melden
+            </Button>
+            <Button 
               variant="ghost" 
               className={`w-full justify-start mb-2 px-4 py-3 rounded-md transition-colors ${
                 currentView === 'home' 
@@ -267,6 +308,17 @@ const Index = () => {
               onClick={() => { setCurrentView('home'); setShowMenu(false); }}
             >
               Startseite
+            </Button>
+            <Button 
+              variant="ghost" 
+              className={`w-full justify-start mb-2 px-4 py-3 rounded-md transition-colors ${
+                currentView === 'products' 
+                  ? 'text-green-600 bg-green-50 font-semibold' 
+                  : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
+              }`}
+              onClick={() => { setCurrentView('products'); setShowMenu(false); }}
+            >
+              Produkte
             </Button>
             <Button 
               variant="ghost" 
@@ -428,6 +480,150 @@ const Index = () => {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+    </div>
+  );
+
+  const renderProducts = () => (
+    <div className="min-h-screen bg-gray-50">
+      {renderHeader()}
+      
+      {/* Hero Section */}
+      <section className="px-4 py-16 bg-gradient-to-br from-blue-600 to-green-600 text-white">
+        <div className="container mx-auto max-w-4xl text-center">
+          <h1 className="text-4xl md:text-5xl font-bold mb-6">
+            Intelligente Sensorik für eine saubere Stadt
+          </h1>
+          <p className="text-xl md:text-2xl mb-8 opacity-90">
+            Automatische Füllstandsmessung für eine effiziente Müllentsorgung.
+          </p>
+          <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center mx-auto">
+            <Zap className="w-12 h-12 text-white" />
+          </div>
+        </div>
+      </section>
+
+      {/* Product Highlights */}
+      <section className="px-4 py-16 bg-white">
+        <div className="container mx-auto max-w-6xl">
+          <h2 className="text-3xl font-bold text-center text-gray-800 mb-12">
+            Produkthighlights
+          </h2>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <Card className="text-center">
+              <CardHeader>
+                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle className="w-8 h-8 text-green-600" />
+                </div>
+                <CardTitle>Kompakte Bauweise</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600">
+                  Kleiner Formfaktor - passt in jeden Mülleimer ohne störende Auffälligkeit.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="text-center">
+              <CardHeader>
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Battery className="w-8 h-8 text-blue-600" />
+                </div>
+                <CardTitle>Batteriebetrieben</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600">
+                  Langlebige Batterien für jahrelangen wartungsfreien Betrieb.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="text-center">
+              <CardHeader>
+                <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Wifi className="w-8 h-8 text-purple-600" />
+                </div>
+                <CardTitle>Drahtlose Übertragung</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600">
+                  NB-IoT oder Wi-Fi Konnektivität für zuverlässige Datenübertragung.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="text-center">
+              <CardHeader>
+                <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Database className="w-8 h-8 text-orange-600" />
+                </div>
+                <CardTitle>Backend-Integration</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600">
+                  Direkte Datenübertragung an das CleanCity Backend-System.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="text-center">
+              <CardHeader>
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Monitor className="w-8 h-8 text-red-600" />
+                </div>
+                <CardTitle>API-Schnittstelle</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600">
+                  Nahtlose Verbindung zu öffentlichen Service-Dashboards.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="text-center">
+              <CardHeader>
+                <div className="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Zap className="w-8 h-8 text-teal-600" />
+                </div>
+                <CardTitle>Intelligente Sensoren</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600">
+                  Präzise Füllstandsmessung mit fortschrittlicher Sensortechnologie.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* Demo Section */}
+      <section className="px-4 py-16 bg-green-50">
+        <div className="container mx-auto max-w-4xl text-center">
+          <Card className="bg-white shadow-lg">
+            <CardHeader>
+              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Leaf className="w-10 h-10 text-green-600" />
+              </div>
+              <CardTitle className="text-2xl">Pilotprojekt in Nürnberg</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-lg text-gray-600 mb-6">
+                Sensor bald verfügbar – CleanCity testet aktuell erste Pilotgeräte in Nürnberg.
+              </p>
+              <p className="text-gray-500 mb-8">
+                Unsere intelligenten Sensoren werden in den kommenden Monaten in ausgewählten 
+                Stadtteilen getestet, um die Effizienz der Müllentsorgung zu optimieren.
+              </p>
+              <Button 
+                className="bg-green-500 hover:bg-green-600 text-white px-8 py-3 text-lg rounded-full"
+                onClick={() => window.location.href = 'mailto:info@cleancity.de?subject=Interesse an CleanCity Sensoren'}
+              >
+                Mehr erfahren
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </section>
     </div>
@@ -1094,6 +1290,8 @@ const Index = () => {
       return renderReportForm();
     case 'confirmation':
       return renderConfirmation();
+    case 'products':
+      return renderProducts();
     case 'about':
       return renderAbout();
     case 'info':
