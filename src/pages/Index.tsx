@@ -51,7 +51,7 @@ const Index = () => {
     const hasIssueType = formData.issueType;
     const hasPartnerMunicipality = formData.partnerMunicipality;
     
-    setCanSubmitReport(hasLocation && hasIssueType && hasPartnerMunicipality);
+    setCanSubmitReport(Boolean(hasLocation && hasIssueType && hasPartnerMunicipality));
   }, [formData.location, formData.issueType, formData.partnerMunicipality]);
 
   // Animation function for counter
