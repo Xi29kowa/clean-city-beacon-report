@@ -9,7 +9,6 @@ import NotFound from "./pages/NotFound";
 import Datenschutz from "./pages/Datenschutz";
 import Impressum from "./pages/Impressum";
 import Nutzungsbedingungen from "./pages/Nutzungsbedingungen";
-import Karte from "./pages/Karte";
 
 const queryClient = new QueryClient();
 
@@ -21,7 +20,6 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
-          <Route path="/karte" element={<Karte />} />
           <Route path="/datenschutz" element={<Datenschutz />} />
           <Route path="/impressum" element={<Impressum />} />
           <Route path="/nutzungsbedingungen" element={<Nutzungsbedingungen />} />
