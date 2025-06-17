@@ -1,0 +1,36 @@
+name: Generate Map
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 4 * * *' # täglich um 4 Uhr
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install folium pandas
+
+      - name: Run map script
+        run: python nbg_waste_basket_map.py
+
+      - name: Upload to Supabase
+        env:
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: |
+          curl -X POST "https://eyhqkhdksvqijxdtbugv.supabase.co/storage/v1/object/clean-map/nbg_wastebaskets_map.html" \
+          -H "apikey: $SUPABASE_KEY" \
+          -H "Authorization: Bearer $SUPABASE_KEY" \
+          -H "Content-Type: text/html" \
+          --data-binary "@nbg_wastebaskets_map.html"
