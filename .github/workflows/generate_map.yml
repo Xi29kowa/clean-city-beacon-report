@@ -2,35 +2,68 @@ name: Generate Map
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '0 4 * * *' # täglich um 4 Uhr
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+    - name: Checkout dein eigenes Repo
+      uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
+    - name: Checkout Kollegen-Repo (public)
+      uses: actions/checkout@v3
+      with:
+        repository: Souy03/Routenplanung
+        path: kollege-code
 
-      - name: Install dependencies
-        run: |
-          pip install folium pandas
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
 
-      - name: Run map script
-        run: python nbg_waste_basket_map.py
+    - name: Install dependencies
+      run: |
+        pip install -r kollege-code/requirements.txt || echo "No requirements.txt"
 
-      - name: Upload to Supabase
-        env:
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-        run: |
-          curl -X POST "https://eyhqkhdksvqijxdtbugv.supabase.co/storage/v1/object/clean-map/nbg_wastebaskets_map.html" \
-          -H "apikey: $SUPABASE_KEY" \
-          -H "Authorization: Bearer $SUPABASE_KEY" \
-          -H "Content-Type: text/html" \
-          --data-binary "@nbg_wastebaskets_map.html"
+    - name: Run map script
+      run: python kollege-code/nbg_waste_basket_map.py
+
+    - name: Upload to Supabase
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+      run: |
+        pip install supabase
+        curl -s https://cdn.jsdelivr.net/npm/@supabase/storage-js/+esm > storage.mjs
+
+        python <<EOF
+import os
+import requests
+
+url = os.getenv("SUPABASE_URL")
+key = os.getenv("SUPABASE_KEY")
+
+bucket = "clean-map"
+file_path = "kollege-code/waste_baskets_nbg.geojson"
+upload_name = "waste_baskets_nbg.geojson"
+
+with open(file_path, "rb") as f:
+    content = f.read()
+
+headers = {
+    "apikey": key,
+    "Authorization": f"Bearer {key}",
+    "Content-Type": "application/octet-stream"
+}
+
+r = requests.post(
+    f"{url}/storage/v1/object/{bucket}/{upload_name}",
+    headers=headers,
+    data=content
+)
+
+if r.status_code >= 300:
+    raise Exception(f"Upload failed: {r.status_code} - {r.text}")
+print("✅ Upload erfolgreich!")
+EOF
