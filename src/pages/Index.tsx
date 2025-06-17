@@ -130,7 +130,7 @@ const Index = () => {
     console.log('Form submission started with data:', {
       location: formData.location,
       issueType: formData.issueType,
-      comment: formData.comment,
+      comment: formData.comment?.trim() || null,
       photo: formData.photo?.name || 'none',
       partnerMunicipality: formData.partnerMunicipality
     });
@@ -249,6 +249,17 @@ const Index = () => {
               </Button>
               <Button 
                 variant="ghost" 
+                onClick={() => setCurrentView('karte')}
+                className={`px-4 py-2 rounded-md transition-colors whitespace-nowrap min-w-[100px] ${
+                  currentView === 'karte' 
+                    ? 'text-green-600 bg-green-50 font-semibold' 
+                    : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
+                }`}
+              >
+                Karte
+              </Button>
+              <Button 
+                variant="ghost" 
                 onClick={() => setCurrentView('home')}
                 className={`px-4 py-2 rounded-md transition-colors whitespace-nowrap min-w-[100px] ${
                   currentView === 'home' 
@@ -320,6 +331,17 @@ const Index = () => {
               onClick={() => { setCurrentView('report'); setShowMenu(false); }}
             >
               Mülleimer melden
+            </Button>
+            <Button 
+              variant="ghost" 
+              className={`w-full justify-start mb-2 px-4 py-3 rounded-md transition-colors ${
+                currentView === 'karte' 
+                  ? 'text-green-600 bg-green-50 font-semibold' 
+                  : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
+              }`}
+              onClick={() => { setCurrentView('karte'); setShowMenu(false); }}
+            >
+              Karte
             </Button>
             <Button 
               variant="ghost" 
@@ -1324,12 +1346,31 @@ const Index = () => {
     </div>
   );
 
+  const renderKarte = () => (
+    <div className="min-h-screen bg-gray-50">
+      {renderHeader()}
+      
+      <div className="container mx-auto px-4 py-8">
+        <h1 className="text-2xl font-bold mb-4 text-center text-green-800">Mülleimer-Karte Nürnberg</h1>
+        <div className="bg-white rounded-lg shadow-lg p-4">
+          <iframe 
+            src="https://routenplanung.vercel.app/nbg_wastebaskets_map.html"
+            className="w-full h-96 md:h-[600px] border rounded-lg"
+            title="Mülleimer Karte"
+          />
+        </div>
+      </div>
+    </div>
+  );
+
   // Main render logic
   switch (currentView) {
     case 'report':
       return renderReportForm();
     case 'confirmation':
       return renderConfirmation();
+    case 'karte':
+      return renderKarte();
     case 'products':
       return renderProducts();
     case 'about':
