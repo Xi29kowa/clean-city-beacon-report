@@ -1,11 +1,14 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, MapPin, Leaf, CheckCircle, ArrowRight, Upload, Menu, X, Info, Shield, Phone, User, LogIn, Share2, Copy, Wifi, Battery, Zap, Database, Monitor } from 'lucide-react';
+import { Camera, MapPin, Leaf, CheckCircle, ArrowRight, Upload, Menu, X, Info, Shield, Phone, User, LogIn, Share2, Copy, Wifi, Battery, Zap, Database, Monitor, LogOut } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import AuthModal from "@/components/AuthModal";
 import UserDropdown from "@/components/UserDropdown";
 import NotificationDialog from "@/components/NotificationDialog";
 import LocationPicker from "@/components/LocationPicker";
@@ -15,6 +18,7 @@ import { useBinReports } from "@/hooks/useBinReports";
 const Index = () => {
   const [currentView, setCurrentView] = useState('home');
   const [showMenu, setShowMenu] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [formData, setFormData] = useState({
     location: '',
@@ -33,6 +37,7 @@ const Index = () => {
   const [canSubmitReport, setCanSubmitReport] = useState(false);
   const inputRef = useRef(null);
   const { toast } = useToast();
+  const { user, logout, isLoggedIn } = useAuth();
 
   // Use the statistics hook
   const { statistics, loading: statsLoading } = useStatistics();
@@ -226,6 +231,17 @@ const Index = () => {
     }
   };
 
+  const handleLogout = () => {
+    logout();
+    if (currentView === 'karte') {
+      setCurrentView('home');
+    }
+    toast({
+      title: "Erfolgreich abgemeldet",
+      description: "Auf Wiedersehen!",
+    });
+  };
+
   const renderHeader = () => (
     <header className="bg-white shadow-sm border-b border-green-100 sticky top-0 z-50">
       <div className="container mx-auto px-4 py-4">
@@ -247,17 +263,19 @@ const Index = () => {
               >
                 Mülleimer melden
               </Button>
-              <Button 
-                variant="ghost" 
-                onClick={() => setCurrentView('karte')}
-                className={`px-4 py-2 rounded-md transition-colors whitespace-nowrap min-w-[100px] ${
-                  currentView === 'karte' 
-                    ? 'text-green-600 bg-green-50 font-semibold' 
-                    : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
-                }`}
-              >
-                Karte
-              </Button>
+              {isLoggedIn && (
+                <Button 
+                  variant="ghost" 
+                  onClick={() => setCurrentView('karte')}
+                  className={`px-4 py-2 rounded-md transition-colors whitespace-nowrap min-w-[100px] ${
+                    currentView === 'karte' 
+                      ? 'text-green-600 bg-green-50 font-semibold' 
+                      : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
+                  }`}
+                >
+                  Karte
+                </Button>
+              )}
               <Button 
                 variant="ghost" 
                 onClick={() => setCurrentView('home')}
@@ -305,9 +323,32 @@ const Index = () => {
             </div>
           </nav>
 
-          {/* User Dropdown - Fixed width to prevent shifting */}
+          {/* User Authentication - Fixed width to prevent shifting */}
           <div className="hidden md:flex items-center justify-end w-48 flex-shrink-0">
-            <UserDropdown />
+            {isLoggedIn ? (
+              <div className="flex items-center space-x-3">
+                <span className="text-sm text-gray-600">Hallo, {user?.username}!</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleLogout}
+                  className="text-red-600 border-red-200 hover:bg-red-50"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Abmelden
+                </Button>
+              </div>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAuthModal(true)}
+                className="text-green-600 border-green-200 hover:bg-green-50"
+              >
+                <LogIn className="w-4 h-4 mr-2" />
+                Anmelden
+              </Button>
+            )}
           </div>
 
           {/* Mobile Menu Button - Fixed right position */}
@@ -332,17 +373,19 @@ const Index = () => {
             >
               Mülleimer melden
             </Button>
-            <Button 
-              variant="ghost" 
-              className={`w-full justify-start mb-2 px-4 py-3 rounded-md transition-colors ${
-                currentView === 'karte' 
-                  ? 'text-green-600 bg-green-50 font-semibold' 
-                  : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
-              }`}
-              onClick={() => { setCurrentView('karte'); setShowMenu(false); }}
-            >
-              Karte
-            </Button>
+            {isLoggedIn && (
+              <Button 
+                variant="ghost" 
+                className={`w-full justify-start mb-2 px-4 py-3 rounded-md transition-colors ${
+                  currentView === 'karte' 
+                    ? 'text-green-600 bg-green-50 font-semibold' 
+                    : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
+                }`}
+                onClick={() => { setCurrentView('karte'); setShowMenu(false); }}
+              >
+                Karte
+              </Button>
+            )}
             <Button 
               variant="ghost" 
               className={`w-full justify-start mb-2 px-4 py-3 rounded-md transition-colors ${
@@ -390,22 +433,30 @@ const Index = () => {
             
             {/* Mobile User Menu */}
             <div className="border-t border-gray-200 pt-4 space-y-2">
-              <Button
-                variant="ghost"
-                className="w-full justify-start text-gray-600 hover:text-gray-800 hover:bg-gray-100"
-                onClick={() => setShowMenu(false)}
-              >
-                <LogIn className="w-4 h-4 mr-2" />
-                Anmelden
-              </Button>
-              <Button
-                variant="ghost"
-                className="w-full justify-start text-gray-600 hover:text-gray-800 hover:bg-gray-100"
-                onClick={() => setShowMenu(false)}
-              >
-                <User className="w-4 h-4 mr-2" />
-                Registrieren
-              </Button>
+              {isLoggedIn ? (
+                <div className="space-y-2">
+                  <div className="px-4 py-2 text-sm text-gray-600">
+                    Hallo, {user?.username}!
+                  </div>
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start text-red-600 hover:text-red-800 hover:bg-red-50"
+                    onClick={() => { handleLogout(); setShowMenu(false); }}
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Abmelden
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start text-green-600 hover:text-green-800 hover:bg-green-50"
+                  onClick={() => { setShowAuthModal(true); setShowMenu(false); }}
+                >
+                  <LogIn className="w-4 h-4 mr-2" />
+                  Anmelden
+                </Button>
+              )}
             </div>
           </div>
         )}
@@ -1364,28 +1415,48 @@ const Index = () => {
   );
 
   // Main render logic
-  switch (currentView) {
-    case 'report':
-      return renderReportForm();
-    case 'confirmation':
-      return renderConfirmation();
-    case 'karte':
-      return renderKarte();
-    case 'products':
-      return renderProducts();
-    case 'about':
-      return renderAbout();
-    case 'info':
-      return renderInfo();
-    case 'datenschutz':
-      return renderDatenschutz();
-    case 'impressum':
-      return renderImpressum();
-    case 'nutzungsbedingungen':
-      return renderNutzungsbedingungen();
-    default:
-      return renderHome();
-  }
+  return (
+    <>
+      {/* Main Content */}
+      {(() => {
+        switch (currentView) {
+          case 'report':
+            return renderReportForm();
+          case 'confirmation':
+            return renderConfirmation();
+          case 'karte':
+            return isLoggedIn ? renderKarte() : renderHome();
+          case 'products':
+            return renderProducts();
+          case 'about':
+            return renderAbout();
+          case 'info':
+            return renderInfo();
+          case 'datenschutz':
+            return renderDatenschutz();
+          case 'impressum':
+            return renderImpressum();
+          case 'nutzungsbedingungen':
+            return renderNutzungsbedingungen();
+          default:
+            return renderHome();
+        }
+      })()}
+
+      {/* Authentication Modal */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+      />
+
+      {/* Notification Dialog */}
+      <NotificationDialog
+        isOpen={showNotificationDialog}
+        onClose={() => setShowNotificationDialog(false)}
+        onSubmit={handleNotificationRequest}
+      />
+    </>
+  );
 };
 
 export default Index;
