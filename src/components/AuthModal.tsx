@@ -42,12 +42,29 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (isLoading) return; // Prevent multiple submissions
+    
     setIsLoading(true);
 
     try {
       if (isLogin) {
-        // Login with email or username
-        const result = await login(formData.email, formData.password);
+        // Add timeout for UI feedback
+        const loginPromise = login(formData.email, formData.password);
+        
+        // Show immediate feedback for long operations
+        const timeoutId = setTimeout(() => {
+          if (isLoading) {
+            toast({
+              title: "Anmeldung läuft...",
+              description: "Bitte haben Sie einen Moment Geduld.",
+            });
+          }
+        }, 2000);
+
+        const result = await loginPromise;
+        clearTimeout(timeoutId);
+        
         if (result.success) {
           toast({
             title: "Erfolgreich angemeldet!",
@@ -116,6 +133,12 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           });
         }
       }
+    } catch (error) {
+      toast({
+        title: "Fehler",
+        description: "Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es erneut.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -145,6 +168,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 onChange={handleInputChange}
                 required={!isLogin}
                 placeholder="Benutzername"
+                disabled={isLoading}
               />
             </div>
           )}
@@ -160,6 +184,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 onChange={handleInputChange}
                 required={!isLogin}
                 placeholder="E-Mail"
+                disabled={isLoading}
               />
             </div>
           )}
@@ -175,6 +200,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 onChange={handleInputChange}
                 required
                 placeholder="E-Mail oder Benutzername"
+                disabled={isLoading}
               />
             </div>
           )}
@@ -189,6 +215,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               onChange={handleInputChange}
               required
               placeholder="Passwort"
+              disabled={isLoading}
             />
           </div>
           
@@ -203,6 +230,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 onChange={handleInputChange}
                 required={!isLogin}
                 placeholder="Passwort bestätigen"
+                disabled={isLoading}
               />
             </div>
           )}
@@ -228,6 +256,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             variant="link"
             onClick={switchMode}
             className="text-green-600 hover:text-green-700"
+            disabled={isLoading}
           >
             {isLogin ? 'Noch kein Konto? Jetzt registrieren' : 'Bereits ein Konto? Jetzt anmelden'}
           </Button>

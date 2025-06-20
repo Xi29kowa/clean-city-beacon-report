@@ -49,13 +49,18 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setSession(session);
         
         if (session?.user) {
-          // Fetch user profile to get username
+          // Fetch user profile to get username with timeout
           try {
-            const { data: profile, error } = await supabase
-              .from('profiles')
-              .select('username')
-              .eq('id', session.user.id)
-              .single();
+            const { data: profile, error } = await Promise.race([
+              supabase
+                .from('profiles')
+                .select('username')
+                .eq('id', session.user.id)
+                .single(),
+              new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Profile fetch timeout')), 3000)
+              )
+            ]);
 
             if (error) {
               console.error('❌ Failed to fetch user profile:', error);
@@ -87,12 +92,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     );
 
-    // THEN check for existing session
+    // THEN check for existing session with timeout
     const initializeAuth = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const { data: { session }, error } = await Promise.race([
+          supabase.auth.getSession(),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Session check timeout')), 3000)
+          )
+        ]);
+        
         if (error) {
           console.error('❌ Failed to get session:', error);
+          setLoading(false);
         }
         // The onAuthStateChange listener will handle the session
       } catch (error) {
@@ -112,16 +124,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       console.log('📝 Attempting to register user:', username, email);
 
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            username: username
-          },
-          emailRedirectTo: `${window.location.origin}/`
-        }
-      });
+      const { data, error } = await Promise.race([
+        supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              username: username
+            },
+            emailRedirectTo: `${window.location.origin}/`
+          }
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Registration timeout')), 10000)
+        )
+      ]);
 
       if (error) {
         console.error('❌ Registration error:', error);
@@ -153,7 +170,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.error('❌ Registration error:', error);
       return { 
         success: false, 
-        error: 'Fehler beim Registrieren. Bitte versuchen Sie es erneut.' 
+        error: 'Registrierung dauert zu lange. Bitte versuchen Sie es erneut.' 
       };
     }
   };
@@ -162,10 +179,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       console.log('🔑 Attempting login for:', email);
 
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
+      const { data, error } = await Promise.race([
+        supabase.auth.signInWithPassword({
+          email,
+          password
+        }),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Login timeout')), 10000)
+        )
+      ]);
 
       if (error) {
         console.error('❌ Login error:', error);
@@ -197,7 +219,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.error('❌ Login error:', error);
       return { 
         success: false, 
-        error: 'Fehler beim Anmelden. Bitte versuchen Sie es erneut.' 
+        error: 'Anmeldung dauert zu lange. Bitte versuchen Sie es erneut.' 
       };
     }
   };
@@ -208,7 +230,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         console.log('🚪 Logging out user:', user.username);
       }
       
-      const { error } = await supabase.auth.signOut();
+      const { error } = await Promise.race([
+        supabase.auth.signOut(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Logout timeout')), 5000)
+        )
+      ]);
       
       if (error) {
         console.error('❌ Logout error:', error);
@@ -217,6 +244,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     } catch (error) {
       console.error('❌ Logout error:', error);
+      // Force logout on timeout
+      setUser(null);
+      setSession(null);
     }
   };
 
