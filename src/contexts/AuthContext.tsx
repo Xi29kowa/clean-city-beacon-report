@@ -1,18 +1,21 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import UserDatabase, { UserRecord } from '@/utils/userDatabase';
 
-interface User {
-  id: number;
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { User, Session } from '@supabase/supabase-js';
+
+interface AuthUser {
+  id: string;
   username: string;
   email: string;
 }
 
 interface AuthContextType {
-  user: User | null;
+  user: AuthUser | null;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   register: (username: string, email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   isLoggedIn: boolean;
+  loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -30,80 +33,122 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  // Load session and database on app start
+  // Load session and set up auth state listener
   useEffect(() => {
-    const initializeAuth = () => {
-      try {
-        console.log('🚀 Initializing authentication system...');
-        
-        // Load database and check for existing session
-        const { currentSession } = UserDatabase.loadDatabase();
-        
-        if (currentSession) {
-          // Convert session to user object
-          const restoredUser: User = {
-            id: currentSession.userId,
-            username: currentSession.username,
-            email: currentSession.email
-          };
-          
-          setUser(restoredUser);
-          console.log('✅ Auto-login successful for user:', restoredUser.username);
-          
-          // Log session info
-          const timeSinceLogin = new Date().getTime() - new Date(currentSession.loginTime).getTime();
-          const hoursSinceLogin = Math.floor(timeSinceLogin / (1000 * 60 * 60));
-          console.log(`🕐 User was logged in ${hoursSinceLogin} hours ago`);
-        } else {
-          console.log('ℹ️ No existing session found');
-        }
+    console.log('🚀 Initializing Supabase authentication system...');
 
-        // Log database stats
-        const stats = UserDatabase.getDatabaseStats();
-        console.log(`📊 Database stats: ${stats.totalUsers} total users registered`);
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('🔄 Auth state changed:', event, session?.user?.email);
         
+        setSession(session);
+        
+        if (session?.user) {
+          // Fetch user profile to get username
+          try {
+            const { data: profile, error } = await supabase
+              .from('profiles')
+              .select('username')
+              .eq('id', session.user.id)
+              .single();
+
+            if (error) {
+              console.error('❌ Failed to fetch user profile:', error);
+              setUser({
+                id: session.user.id,
+                username: session.user.email?.split('@')[0] || 'User',
+                email: session.user.email || ''
+              });
+            } else {
+              setUser({
+                id: session.user.id,
+                username: profile.username,
+                email: session.user.email || ''
+              });
+            }
+          } catch (error) {
+            console.error('❌ Error fetching profile:', error);
+            setUser({
+              id: session.user.id,
+              username: session.user.email?.split('@')[0] || 'User',
+              email: session.user.email || ''
+            });
+          }
+        } else {
+          setUser(null);
+        }
+        
+        setLoading(false);
+      }
+    );
+
+    // THEN check for existing session
+    const initializeAuth = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) {
+          console.error('❌ Failed to get session:', error);
+        }
+        // The onAuthStateChange listener will handle the session
       } catch (error) {
         console.error('❌ Failed to initialize auth:', error);
+        setLoading(false);
       }
     };
 
     initializeAuth();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const register = async (username: string, email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      console.log('📝 Attempting to register user:', username);
+      console.log('📝 Attempting to register user:', username, email);
 
-      // Check if user already exists
-      if (UserDatabase.userExists(email, username)) {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            username: username
+          },
+          emailRedirectTo: `${window.location.origin}/`
+        }
+      });
+
+      if (error) {
+        console.error('❌ Registration error:', error);
+        
+        // Handle specific error cases
+        if (error.message.includes('User already registered')) {
+          return { 
+            success: false, 
+            error: 'Benutzer mit dieser E-Mail existiert bereits.' 
+          };
+        }
+        
         return { 
           success: false, 
-          error: 'Benutzer mit dieser E-Mail oder diesem Benutzernamen existiert bereits.' 
+          error: error.message || 'Fehler beim Registrieren. Bitte versuchen Sie es erneut.' 
         };
       }
 
-      // Save user to permanent database
-      const newUser = UserDatabase.saveUser({
-        username,
-        email,
-        password // In production, this would be hashed
-      });
+      if (data.user) {
+        console.log('✅ Registration successful:', username);
+        return { success: true };
+      }
 
-      // Create user object without password
-      const userWithoutPassword: User = {
-        id: newUser.id,
-        username: newUser.username,
-        email: newUser.email
+      return { 
+        success: false, 
+        error: 'Registrierung fehlgeschlagen. Bitte versuchen Sie es erneut.' 
       };
-
-      // Set current user and save session
-      setUser(userWithoutPassword);
-      UserDatabase.saveSession(newUser);
-
-      console.log('✅ Registration and auto-login successful:', username);
-      return { success: true };
     } catch (error) {
       console.error('❌ Registration error:', error);
       return { 
@@ -113,33 +158,41 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const login = async (emailOrUsername: string, password: string): Promise<{ success: boolean; error?: string }> => {
+  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      console.log('🔑 Attempting login for:', emailOrUsername);
+      console.log('🔑 Attempting login for:', email);
 
-      // Find user in permanent database
-      const foundUser = UserDatabase.findUser(emailOrUsername, password);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
 
-      if (!foundUser) {
+      if (error) {
+        console.error('❌ Login error:', error);
+        
+        // Handle specific error cases
+        if (error.message.includes('Invalid login credentials')) {
+          return { 
+            success: false, 
+            error: 'Ungültige Anmeldedaten.' 
+          };
+        }
+        
         return { 
           success: false, 
-          error: 'Ungültige Anmeldedaten.' 
+          error: error.message || 'Fehler beim Anmelden. Bitte versuchen Sie es erneut.' 
         };
       }
 
-      // Create user object without password
-      const userWithoutPassword: User = {
-        id: foundUser.id,
-        username: foundUser.username,
-        email: foundUser.email
+      if (data.user) {
+        console.log('✅ Login successful:', data.user.email);
+        return { success: true };
+      }
+
+      return { 
+        success: false, 
+        error: 'Anmeldung fehlgeschlagen. Bitte versuchen Sie es erneut.' 
       };
-
-      // Set current user and save session
-      setUser(userWithoutPassword);
-      UserDatabase.saveSession(foundUser);
-
-      console.log('✅ Login successful:', foundUser.username);
-      return { success: true };
     } catch (error) {
       console.error('❌ Login error:', error);
       return { 
@@ -149,17 +202,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
     try {
       if (user) {
         console.log('🚪 Logging out user:', user.username);
       }
       
-      // Clear session but keep user in database
-      UserDatabase.clearSession();
-      setUser(null);
+      const { error } = await supabase.auth.signOut();
       
-      console.log('✅ Logout successful - user account remains in database');
+      if (error) {
+        console.error('❌ Logout error:', error);
+      } else {
+        console.log('✅ Logout successful');
+      }
     } catch (error) {
       console.error('❌ Logout error:', error);
     }
@@ -170,7 +225,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     login,
     register,
     logout,
-    isLoggedIn: !!user
+    isLoggedIn: !!user,
+    loading
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
