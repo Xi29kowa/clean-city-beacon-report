@@ -35,7 +35,7 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(false); // Changed from true to false to start logged out
+  const [loading, setLoading] = useState(false);
 
   // Set up auth state listener but DON'T auto-restore session
   useEffect(() => {
@@ -48,16 +48,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setSession(session);
         
         if (session?.user && event === 'SIGNED_IN') {
-          // Only fetch profile on actual sign in, not on session restoration
+          // Quick profile fetch with short timeout
           try {
-            const { data: profile, error } = await supabase
+            const profileTimeout = new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('Profile fetch timeout')), 2000)
+            );
+
+            const profileFetch = supabase
               .from('profiles')
               .select('username')
               .eq('id', session.user.id)
               .single();
 
-            if (error) {
-              console.error('❌ Failed to fetch user profile:', error);
+            const result = await Promise.race([profileFetch, profileTimeout]) as any;
+
+            if (result.error) {
+              console.log('⚠️ Using fallback user data');
               setUser({
                 id: session.user.id,
                 username: session.user.email?.split('@')[0] || 'User',
@@ -66,12 +72,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             } else {
               setUser({
                 id: session.user.id,
-                username: profile.username,
+                username: result.data.username,
                 email: session.user.email || ''
               });
             }
           } catch (error) {
-            console.error('❌ Error fetching profile:', error);
+            console.log('⚠️ Profile fetch failed, using fallback');
             setUser({
               id: session.user.id,
               username: session.user.email?.split('@')[0] || 'User',
@@ -86,7 +92,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     );
 
-    // DON'T check for existing session - start logged out
     console.log('✅ Auth initialized - starting logged out');
 
     return () => {
@@ -95,29 +100,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const register = async (username: string, email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    console.log('📝 Starting registration for:', username, email);
+    setLoading(true);
+
     try {
-      console.log('📝 Attempting to register user:', username, email);
+      // Much shorter timeout for registration
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Registration timeout')), 5000)
+      );
 
-      const registerResult = await Promise.race([
-        supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              username: username
-            },
-            emailRedirectTo: `${window.location.origin}/`
-          }
-        }),
-        new Promise<{ data: null; error: { message: string } }>((_, reject) => 
-          setTimeout(() => reject({ data: null, error: { message: 'Registration timeout' } }), 10000)
-        )
-      ]);
+      const registerPromise = supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            username: username
+          },
+          emailRedirectTo: `${window.location.origin}/`
+        }
+      });
 
-      if (registerResult.error) {
-        console.error('❌ Registration error:', registerResult.error);
+      const result = await Promise.race([registerPromise, timeoutPromise]) as any;
+
+      if (result.error) {
+        console.error('❌ Registration error:', result.error);
         
-        if (registerResult.error.message.includes('User already registered')) {
+        if (result.error.message.includes('User already registered')) {
           return { 
             success: false, 
             error: 'Benutzer mit dieser E-Mail existiert bereits.' 
@@ -126,11 +134,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         return { 
           success: false, 
-          error: registerResult.error.message || 'Fehler beim Registrieren. Bitte versuchen Sie es erneut.' 
+          error: result.error.message || 'Fehler beim Registrieren. Bitte versuchen Sie es erneut.' 
         };
       }
 
-      if (registerResult.data?.user) {
+      if (result.data?.user) {
         console.log('✅ Registration successful:', username);
         return { success: true };
       }
@@ -140,32 +148,37 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         error: 'Registrierung fehlgeschlagen. Bitte versuchen Sie es erneut.' 
       };
     } catch (error) {
-      console.error('❌ Registration error:', error);
+      console.error('❌ Registration timeout or error:', error);
       return { 
         success: false, 
-        error: 'Registrierung dauert zu lange. Bitte versuchen Sie es erneut.' 
+        error: 'Registrierung dauert zu lange. Bitte versuchen Sie es später erneut.' 
       };
+    } finally {
+      setLoading(false);
     }
   };
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    console.log('🔑 Starting login for:', email);
+    setLoading(true);
+
     try {
-      console.log('🔑 Attempting login for:', email);
+      // Very short timeout - 3 seconds max
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Login timeout')), 3000)
+      );
 
-      const loginResult = await Promise.race([
-        supabase.auth.signInWithPassword({
-          email,
-          password
-        }),
-        new Promise<{ data: null; error: { message: string } }>((_, reject) => 
-          setTimeout(() => reject({ data: null, error: { message: 'Login timeout' } }), 10000)
-        )
-      ]);
+      const loginPromise = supabase.auth.signInWithPassword({
+        email,
+        password
+      });
 
-      if (loginResult.error) {
-        console.error('❌ Login error:', loginResult.error);
+      const result = await Promise.race([loginPromise, timeoutPromise]) as any;
+
+      if (result.error) {
+        console.error('❌ Login error:', result.error);
         
-        if (loginResult.error.message.includes('Invalid login credentials')) {
+        if (result.error.message.includes('Invalid login credentials')) {
           return { 
             success: false, 
             error: 'Ungültige Anmeldedaten.' 
@@ -174,12 +187,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         return { 
           success: false, 
-          error: loginResult.error.message || 'Fehler beim Anmelden. Bitte versuchen Sie es erneut.' 
+          error: result.error.message || 'Fehler beim Anmelden. Bitte versuchen Sie es erneut.' 
         };
       }
 
-      if (loginResult.data?.user) {
-        console.log('✅ Login successful:', loginResult.data.user.email);
+      if (result.data?.user) {
+        console.log('✅ Login successful:', result.data.user.email);
         return { success: true };
       }
 
@@ -188,11 +201,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         error: 'Anmeldung fehlgeschlagen. Bitte versuchen Sie es erneut.' 
       };
     } catch (error) {
-      console.error('❌ Login error:', error);
+      console.error('❌ Login timeout:', error);
       return { 
         success: false, 
-        error: 'Anmeldung dauert zu lange. Bitte versuchen Sie es erneut.' 
+        error: 'Anmeldung dauert zu lange. Bitte versuchen Sie es später erneut.' 
       };
+    } finally {
+      setLoading(false);
     }
   };
 

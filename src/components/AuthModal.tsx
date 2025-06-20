@@ -43,27 +43,15 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (isLoading) return; // Prevent multiple submissions
+    if (isLoading) return;
     
     setIsLoading(true);
 
     try {
       if (isLogin) {
-        // Add timeout for UI feedback
-        const loginPromise = login(formData.email, formData.password);
+        console.log('🔑 Attempting login...');
         
-        // Show immediate feedback for long operations
-        const timeoutId = setTimeout(() => {
-          if (isLoading) {
-            toast({
-              title: "Anmeldung läuft...",
-              description: "Bitte haben Sie einen Moment Geduld.",
-            });
-          }
-        }, 2000);
-
-        const result = await loginPromise;
-        clearTimeout(timeoutId);
+        const result = await login(formData.email, formData.password);
         
         if (result.success) {
           toast({
@@ -134,6 +122,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         }
       }
     } catch (error) {
+      console.error('Auth error:', error);
       toast({
         title: "Fehler",
         description: "Ein unerwarteter Fehler ist aufgetreten. Bitte versuchen Sie es erneut.",
