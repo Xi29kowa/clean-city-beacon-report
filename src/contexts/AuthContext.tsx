@@ -1,7 +1,5 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { User, Session } from '@supabase/supabase-js';
 
 interface AuthUser {
   id: string;
@@ -34,190 +32,120 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Load session and set up auth state listener
+  // Load session from localStorage on app start
   useEffect(() => {
-    console.log('🚀 Initializing Supabase authentication system...');
-
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('🔄 Auth state changed:', event, session?.user?.email);
-        
-        setSession(session);
-        
-        if (session?.user) {
-          // Fetch user profile to get username
-          try {
-            const { data: profile, error } = await supabase
-              .from('profiles')
-              .select('username')
-              .eq('id', session.user.id)
-              .single();
-
-            if (error) {
-              console.error('❌ Failed to fetch user profile:', error);
-              setUser({
-                id: session.user.id,
-                username: session.user.email?.split('@')[0] || 'User',
-                email: session.user.email || ''
-              });
-            } else {
-              setUser({
-                id: session.user.id,
-                username: profile.username,
-                email: session.user.email || ''
-              });
-            }
-          } catch (error) {
-            console.error('❌ Error fetching profile:', error);
-            setUser({
-              id: session.user.id,
-              username: session.user.email?.split('@')[0] || 'User',
-              email: session.user.email || ''
-            });
-          }
-        } else {
-          setUser(null);
-        }
-        
-        setLoading(false);
+    console.log('🚀 Initializing localStorage authentication system...');
+    
+    try {
+      const session = localStorage.getItem('cleanCitySession');
+      if (session) {
+        const userData = JSON.parse(session);
+        console.log('✅ Found existing session for:', userData.username);
+        setUser(userData);
+      } else {
+        console.log('📝 No existing session found');
       }
-    );
-
-    // THEN check for existing session
-    const initializeAuth = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) {
-          console.error('❌ Failed to get session:', error);
-        }
-        // The onAuthStateChange listener will handle the session
-      } catch (error) {
-        console.error('❌ Failed to initialize auth:', error);
-        setLoading(false);
-      }
-    };
-
-    initializeAuth();
-
-    return () => {
-      subscription.unsubscribe();
-    };
+    } catch (error) {
+      console.error('❌ Failed to load session:', error);
+      localStorage.removeItem('cleanCitySession');
+    }
+    
+    setLoading(false);
   }, []);
 
   const register = async (username: string, email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    console.log('📝 Attempting to register user:', username, email);
+    
     try {
-      console.log('📝 Attempting to register user:', username, email);
-
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            username: username
-          },
-          emailRedirectTo: `${window.location.origin}/`
-        }
-      });
-
-      if (error) {
-        console.error('❌ Registration error:', error);
-        
-        // Handle specific error cases
-        if (error.message.includes('User already registered')) {
-          return { 
-            success: false, 
-            error: 'Benutzer mit dieser E-Mail existiert bereits.' 
-          };
-        }
-        
+      // Get existing users
+      const users = JSON.parse(localStorage.getItem('cleanCityUsers') || '[]');
+      
+      // Check if user already exists
+      const existingUser = users.find((u: any) => u.email === email || u.username === username);
+      if (existingUser) {
         return { 
           success: false, 
-          error: error.message || 'Fehler beim Registrieren. Bitte versuchen Sie es erneut.' 
+          error: 'Benutzer mit dieser E-Mail oder diesem Benutzernamen existiert bereits.' 
         };
       }
-
-      if (data.user) {
-        console.log('✅ Registration successful:', username);
-        return { success: true };
-      }
-
-      return { 
-        success: false, 
-        error: 'Registrierung fehlgeschlagen. Bitte versuchen Sie es erneut.' 
+      
+      // Create new user
+      const newUser = {
+        id: crypto.randomUUID(),
+        username,
+        email,
+        password
       };
+      
+      // Save to users list
+      users.push(newUser);
+      localStorage.setItem('cleanCityUsers', JSON.stringify(users));
+      
+      // Auto-login the new user
+      const authUser = { id: newUser.id, username, email };
+      localStorage.setItem('cleanCitySession', JSON.stringify(authUser));
+      setUser(authUser);
+      
+      console.log('✅ Registration successful:', username);
+      return { success: true };
     } catch (error) {
       console.error('❌ Registration error:', error);
       return { 
         success: false, 
-        error: 'Fehler beim Registrieren. Bitte versuchen Sie es erneut.' 
+        error: 'Registrierung fehlgeschlagen. Bitte versuchen Sie es erneut.' 
       };
     }
   };
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    console.log('🔑 Attempting fast login for:', email);
+    
     try {
-      console.log('🔑 Attempting login for:', email);
-
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-
-      if (error) {
-        console.error('❌ Login error:', error);
+      // Get users from localStorage
+      const users = JSON.parse(localStorage.getItem('cleanCityUsers') || '[]');
+      
+      // Find matching user (allow login with email or username)
+      const foundUser = users.find((u: any) => 
+        (u.email === email || u.username === email) && u.password === password
+      );
+      
+      if (foundUser) {
+        // Create auth user object (without password)
+        const authUser = {
+          id: foundUser.id,
+          username: foundUser.username,
+          email: foundUser.email
+        };
         
-        // Handle specific error cases
-        if (error.message.includes('Invalid login credentials')) {
-          return { 
-            success: false, 
-            error: 'Ungültige Anmeldedaten.' 
-          };
-        }
+        // Save session
+        localStorage.setItem('cleanCitySession', JSON.stringify(authUser));
+        setUser(authUser);
         
+        console.log('✅ Fast login successful:', foundUser.username);
+        return { success: true };
+      } else {
+        console.log('❌ Invalid credentials for:', email);
         return { 
           success: false, 
-          error: error.message || 'Fehler beim Anmelden. Bitte versuchen Sie es erneut.' 
+          error: 'Ungültige Anmeldedaten.' 
         };
       }
-
-      if (data.user) {
-        console.log('✅ Login successful:', data.user.email);
-        return { success: true };
-      }
-
-      return { 
-        success: false, 
-        error: 'Anmeldung fehlgeschlagen. Bitte versuchen Sie es erneut.' 
-      };
     } catch (error) {
       console.error('❌ Login error:', error);
       return { 
         success: false, 
-        error: 'Fehler beim Anmelden. Bitte versuchen Sie es erneut.' 
+        error: 'Anmeldung fehlgeschlagen. Bitte versuchen Sie es erneut.' 
       };
     }
   };
 
-  const logout = async () => {
-    try {
-      if (user) {
-        console.log('🚪 Logging out user:', user.username);
-      }
-      
-      const { error } = await supabase.auth.signOut();
-      
-      if (error) {
-        console.error('❌ Logout error:', error);
-      } else {
-        console.log('✅ Logout successful');
-      }
-    } catch (error) {
-      console.error('❌ Logout error:', error);
-    }
+  const logout = () => {
+    console.log('🚪 Logging out user:', user?.username);
+    localStorage.removeItem('cleanCitySession');
+    setUser(null);
+    console.log('✅ Logout successful');
   };
 
   const value: AuthContextType = {
