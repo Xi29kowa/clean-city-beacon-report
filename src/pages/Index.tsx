@@ -328,15 +328,15 @@ const Index = () => {
             {isLoggedIn ? (
               <div className="flex items-center space-x-3">
                 {/* User Profile Widget */}
-                <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
-                  <User className="w-5 h-5 text-green-600" />
+                <div className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-md h-9">
+                  <User className="w-4 h-4 text-green-600" />
                   <span className="text-sm font-medium text-green-800">Hallo, {user?.username}!</span>
                 </div>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={handleLogout}
-                  className="text-red-600 border-red-200 hover:bg-red-50"
+                  className="text-red-600 border-red-200 hover:bg-red-50 h-9"
                 >
                   <LogOut className="w-4 h-4 mr-2" />
                   Abmelden
@@ -440,8 +440,8 @@ const Index = () => {
               {isLoggedIn ? (
                 <div className="space-y-2">
                   {/* Mobile User Profile Widget */}
-                  <div className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-lg">
-                    <User className="w-5 h-5 text-green-600" />
+                  <div className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-md">
+                    <User className="w-4 h-4 text-green-600" />
                     <span className="text-sm font-medium text-green-800">Hallo, {user?.username}!</span>
                   </div>
                   <Button
