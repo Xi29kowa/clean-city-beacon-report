@@ -105,12 +105,22 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           return;
         }
 
+        console.log('📝 Attempting registration...');
         const result = await register(formData.username, formData.email, formData.password);
+        
         if (result.success) {
-          toast({
-            title: "Registrierung erfolgreich!",
-            description: "Sie wurden automatisch angemeldet.",
-          });
+          // Check if there's an error message (like email confirmation needed)
+          if (result.error) {
+            toast({
+              title: "Registrierung erfolgreich!",
+              description: result.error,
+            });
+          } else {
+            toast({
+              title: "Registrierung erfolgreich!",
+              description: "Sie wurden automatisch angemeldet.",
+            });
+          }
           resetForm();
           onClose();
         } else {
@@ -162,37 +172,19 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             </div>
           )}
 
-          {!isLogin && (
-            <div>
-              <Label htmlFor="email">E-Mail</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                required={!isLogin}
-                placeholder="E-Mail"
-                disabled={isLoading}
-              />
-            </div>
-          )}
-
-          {isLogin && (
-            <div>
-              <Label htmlFor="email">E-Mail oder Benutzername</Label>
-              <Input
-                id="email"
-                name="email"
-                type="text"
-                value={formData.email}
-                onChange={handleInputChange}
-                required
-                placeholder="E-Mail oder Benutzername"
-                disabled={isLoading}
-              />
-            </div>
-          )}
+          <div>
+            <Label htmlFor="email">E-Mail</Label>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              value={formData.email}
+              onChange={handleInputChange}
+              required
+              placeholder="E-Mail"
+              disabled={isLoading}
+            />
+          </div>
           
           <div>
             <Label htmlFor="password">Passwort</Label>

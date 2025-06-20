@@ -51,7 +51,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         setSession(session);
         
-        if (session?.user && event === 'SIGNED_IN') {
+        if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
           // Quick profile fetch with short timeout
           try {
             const profileTimeout = new Promise((_, reject) =>
@@ -105,14 +105,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const register = async (username: string, email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     console.log('📝 Starting registration for:', username, email);
-    console.log('Current origin:', typeof window !== 'undefined' ? window.location.origin : 'SSR');
     setLoading(true);
 
     try {
       const redirectUrl = typeof window !== 'undefined' ? `${window.location.origin}/` : undefined;
       console.log('Using redirect URL:', redirectUrl);
 
-      // Shorter timeout for production - 8 seconds
+      // Shorter timeout for registration - 8 seconds
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Registration timeout - please try again')), 8000)
       );
@@ -129,6 +128,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       });
 
       const result = await Promise.race([registerPromise, timeoutPromise]) as any;
+
+      console.log('📝 Registration result:', result);
 
       if (result?.error) {
         console.error('❌ Registration error:', result.error);
@@ -147,7 +148,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       if (result?.data?.user) {
-        console.log('✅ Registration successful:', username);
+        console.log('✅ Registration successful for:', username);
+        
+        // Check if user needs email confirmation
+        if (!result.data.session) {
+          console.log('📧 Email confirmation required');
+          return { 
+            success: true, 
+            error: 'Registrierung erfolgreich! Bitte bestätigen Sie Ihre E-Mail-Adresse.' 
+          };
+        }
+        
+        // User is automatically logged in
+        console.log('🎉 User registered and logged in automatically');
         return { success: true };
       }
 
