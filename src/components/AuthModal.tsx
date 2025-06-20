@@ -46,7 +46,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
     try {
       if (isLogin) {
-        // Login
+        // Login with email or username
         const result = await login(formData.email, formData.password);
         if (result.success) {
           toast({
@@ -63,7 +63,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           });
         }
       } else {
-        // Register
+        // Registration validation
         if (formData.password !== formData.confirmPassword) {
           toast({
             title: "Passwörter stimmen nicht überein",
@@ -82,14 +82,32 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           return;
         }
 
+        if (!formData.username.trim()) {
+          toast({
+            title: "Benutzername erforderlich",
+            description: "Bitte geben Sie einen Benutzernamen ein.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (!formData.email.trim() || !formData.email.includes('@')) {
+          toast({
+            title: "Ungültige E-Mail",
+            description: "Bitte geben Sie eine gültige E-Mail-Adresse ein.",
+            variant: "destructive",
+          });
+          return;
+        }
+
         const result = await register(formData.username, formData.email, formData.password);
         if (result.success) {
           toast({
             title: "Registrierung erfolgreich!",
-            description: "Sie können sich jetzt anmelden.",
+            description: "Sie wurden automatisch angemeldet.",
           });
           resetForm();
-          setIsLogin(true);
+          onClose();
         } else {
           toast({
             title: "Registrierung fehlgeschlagen",
@@ -126,23 +144,40 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 value={formData.username}
                 onChange={handleInputChange}
                 required={!isLogin}
-                placeholder="Ihr Benutzername"
+                placeholder="Benutzername"
               />
             </div>
           )}
-          
-          <div>
-            <Label htmlFor="email">E-Mail oder Benutzername</Label>
-            <Input
-              id="email"
-              name="email"
-              type="text"
-              value={formData.email}
-              onChange={handleInputChange}
-              required
-              placeholder={isLogin ? "E-Mail oder Benutzername" : "Ihre E-Mail-Adresse"}
-            />
-          </div>
+
+          {!isLogin && (
+            <div>
+              <Label htmlFor="email">E-Mail</Label>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                required={!isLogin}
+                placeholder="E-Mail"
+              />
+            </div>
+          )}
+
+          {isLogin && (
+            <div>
+              <Label htmlFor="email">E-Mail oder Benutzername</Label>
+              <Input
+                id="email"
+                name="email"
+                type="text"
+                value={formData.email}
+                onChange={handleInputChange}
+                required
+                placeholder="E-Mail oder Benutzername"
+              />
+            </div>
+          )}
           
           <div>
             <Label htmlFor="password">Passwort</Label>
@@ -153,7 +188,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               value={formData.password}
               onChange={handleInputChange}
               required
-              placeholder="Ihr Passwort"
+              placeholder="Passwort"
             />
           </div>
           
@@ -167,7 +202,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 value={formData.confirmPassword}
                 onChange={handleInputChange}
                 required={!isLogin}
-                placeholder="Passwort wiederholen"
+                placeholder="Passwort bestätigen"
               />
             </div>
           )}
