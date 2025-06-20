@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import UserDatabase, { UserRecord } from '@/utils/userDatabase';
 
 interface User {
   id: number;
@@ -31,109 +32,137 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
 
-  // Load session on app start
+  // Load session and database on app start
   useEffect(() => {
-    const loadSession = () => {
+    const initializeAuth = () => {
       try {
-        const savedUser = localStorage.getItem('cleanCity_currentUser');
-        if (savedUser) {
-          const parsedUser = JSON.parse(savedUser);
-          setUser(parsedUser);
-          console.log('Session restored for user:', parsedUser.username);
+        console.log('🚀 Initializing authentication system...');
+        
+        // Load database and check for existing session
+        const { currentSession } = UserDatabase.loadDatabase();
+        
+        if (currentSession) {
+          // Convert session to user object
+          const restoredUser: User = {
+            id: currentSession.userId,
+            username: currentSession.username,
+            email: currentSession.email
+          };
+          
+          setUser(restoredUser);
+          console.log('✅ Auto-login successful for user:', restoredUser.username);
+          
+          // Log session info
+          const timeSinceLogin = new Date().getTime() - new Date(currentSession.loginTime).getTime();
+          const hoursSinceLogin = Math.floor(timeSinceLogin / (1000 * 60 * 60));
+          console.log(`🕐 User was logged in ${hoursSinceLogin} hours ago`);
+        } else {
+          console.log('ℹ️ No existing session found');
         }
+
+        // Log database stats
+        const stats = UserDatabase.getDatabaseStats();
+        console.log(`📊 Database stats: ${stats.totalUsers} total users registered`);
+        
       } catch (error) {
-        console.error('Error loading saved session:', error);
-        localStorage.removeItem('cleanCity_currentUser');
+        console.error('❌ Failed to initialize auth:', error);
       }
     };
 
-    loadSession();
+    initializeAuth();
   }, []);
-
-  const saveUser = (userData: any) => {
-    try {
-      const existingUsers = JSON.parse(localStorage.getItem('cleanCity_users') || '[]');
-      existingUsers.push(userData);
-      localStorage.setItem('cleanCity_users', JSON.stringify(existingUsers));
-      console.log('User account saved permanently:', userData.username);
-    } catch (error) {
-      console.error('Error saving user account:', error);
-    }
-  };
-
-  const saveSession = (user: User) => {
-    try {
-      localStorage.setItem('cleanCity_currentUser', JSON.stringify(user));
-      console.log('Session saved for user:', user.username);
-    } catch (error) {
-      console.error('Error saving session:', error);
-    }
-  };
 
   const register = async (username: string, email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      // Get existing users
-      const existingUsers = JSON.parse(localStorage.getItem('cleanCity_users') || '[]');
-      
+      console.log('📝 Attempting to register user:', username);
+
       // Check if user already exists
-      const userExists = existingUsers.some((u: any) => u.email === email || u.username === username);
-      if (userExists) {
-        return { success: false, error: 'Benutzer mit dieser E-Mail oder diesem Benutzernamen existiert bereits.' };
+      if (UserDatabase.userExists(email, username)) {
+        return { 
+          success: false, 
+          error: 'Benutzer mit dieser E-Mail oder diesem Benutzernamen existiert bereits.' 
+        };
       }
 
-      // Create new user
-      const newUser = {
-        id: Date.now(),
+      // Save user to permanent database
+      const newUser = UserDatabase.saveUser({
         username,
         email,
-        password // In a real app, this would be hashed
+        password // In production, this would be hashed
+      });
+
+      // Create user object without password
+      const userWithoutPassword: User = {
+        id: newUser.id,
+        username: newUser.username,
+        email: newUser.email
       };
 
-      // Save user account permanently
-      saveUser(newUser);
-
-      // Automatically log in the new user
-      const { password: _, ...userWithoutPassword } = newUser;
+      // Set current user and save session
       setUser(userWithoutPassword);
-      saveSession(userWithoutPassword);
+      UserDatabase.saveSession(newUser);
 
-      console.log('User registered and logged in:', username);
+      console.log('✅ Registration and auto-login successful:', username);
       return { success: true };
     } catch (error) {
-      console.error('Registration error:', error);
-      return { success: false, error: 'Fehler beim Registrieren. Bitte versuchen Sie es erneut.' };
+      console.error('❌ Registration error:', error);
+      return { 
+        success: false, 
+        error: 'Fehler beim Registrieren. Bitte versuchen Sie es erneut.' 
+      };
     }
   };
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+  const login = async (emailOrUsername: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      const users = JSON.parse(localStorage.getItem('cleanCity_users') || '[]');
-      const user = users.find((u: any) => 
-        (u.email === email || u.username === email) && u.password === password
-      );
+      console.log('🔑 Attempting login for:', emailOrUsername);
 
-      if (!user) {
-        return { success: false, error: 'Ungültige Anmeldedaten.' };
+      // Find user in permanent database
+      const foundUser = UserDatabase.findUser(emailOrUsername, password);
+
+      if (!foundUser) {
+        return { 
+          success: false, 
+          error: 'Ungültige Anmeldedaten.' 
+        };
       }
 
-      // Remove password from user object before setting state
-      const { password: _, ...userWithoutPassword } = user;
-      setUser(userWithoutPassword);
-      saveSession(userWithoutPassword);
+      // Create user object without password
+      const userWithoutPassword: User = {
+        id: foundUser.id,
+        username: foundUser.username,
+        email: foundUser.email
+      };
 
-      console.log('User logged in:', user.username);
+      // Set current user and save session
+      setUser(userWithoutPassword);
+      UserDatabase.saveSession(foundUser);
+
+      console.log('✅ Login successful:', foundUser.username);
       return { success: true };
     } catch (error) {
-      console.error('Login error:', error);
-      return { success: false, error: 'Fehler beim Anmelden. Bitte versuchen Sie es erneut.' };
+      console.error('❌ Login error:', error);
+      return { 
+        success: false, 
+        error: 'Fehler beim Anmelden. Bitte versuchen Sie es erneut.' 
+      };
     }
   };
 
   const logout = () => {
-    console.log('User logged out:', user?.username);
-    setUser(null);
-    localStorage.removeItem('cleanCity_currentUser');
-    // Note: We keep the user accounts in cleanCity_users, only clear the session
+    try {
+      if (user) {
+        console.log('🚪 Logging out user:', user.username);
+      }
+      
+      // Clear session but keep user in database
+      UserDatabase.clearSession();
+      setUser(null);
+      
+      console.log('✅ Logout successful - user account remains in database');
+    } catch (error) {
+      console.error('❌ Logout error:', error);
+    }
   };
 
   const value: AuthContextType = {
