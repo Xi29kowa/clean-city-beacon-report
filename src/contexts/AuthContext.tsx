@@ -35,35 +35,29 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Changed from true to false to start logged out
 
-  // Load session and set up auth state listener
+  // Set up auth state listener but DON'T auto-restore session
   useEffect(() => {
-    console.log('🚀 Initializing Supabase authentication system...');
+    console.log('🚀 Setting up auth state listener (no auto-login)...');
 
-    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('🔄 Auth state changed:', event, session?.user?.email);
         
         setSession(session);
         
-        if (session?.user) {
-          // Fetch user profile to get username with timeout
+        if (session?.user && event === 'SIGNED_IN') {
+          // Only fetch profile on actual sign in, not on session restoration
           try {
-            const profileResult = await Promise.race([
-              supabase
-                .from('profiles')
-                .select('username')
-                .eq('id', session.user.id)
-                .single(),
-              new Promise<{ data: null; error: { message: string } }>((_, reject) => 
-                setTimeout(() => reject({ data: null, error: { message: 'Profile fetch timeout' } }), 3000)
-              )
-            ]);
+            const { data: profile, error } = await supabase
+              .from('profiles')
+              .select('username')
+              .eq('id', session.user.id)
+              .single();
 
-            if (profileResult.error) {
-              console.error('❌ Failed to fetch user profile:', profileResult.error);
+            if (error) {
+              console.error('❌ Failed to fetch user profile:', error);
               setUser({
                 id: session.user.id,
                 username: session.user.email?.split('@')[0] || 'User',
@@ -72,7 +66,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             } else {
               setUser({
                 id: session.user.id,
-                username: profileResult.data.username,
+                username: profile.username,
                 email: session.user.email || ''
               });
             }
@@ -92,28 +86,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     );
 
-    // THEN check for existing session with timeout
-    const initializeAuth = async () => {
-      try {
-        const sessionResult = await Promise.race([
-          supabase.auth.getSession(),
-          new Promise<{ data: { session: null }; error: { message: string } }>((_, reject) => 
-            setTimeout(() => reject({ data: { session: null }, error: { message: 'Session check timeout' } }), 3000)
-          )
-        ]);
-        
-        if (sessionResult.error) {
-          console.error('❌ Failed to get session:', sessionResult.error);
-          setLoading(false);
-        }
-        // The onAuthStateChange listener will handle the session
-      } catch (error) {
-        console.error('❌ Failed to initialize auth:', error);
-        setLoading(false);
-      }
-    };
-
-    initializeAuth();
+    // DON'T check for existing session - start logged out
+    console.log('✅ Auth initialized - starting logged out');
 
     return () => {
       subscription.unsubscribe();
@@ -143,7 +117,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (registerResult.error) {
         console.error('❌ Registration error:', registerResult.error);
         
-        // Handle specific error cases
         if (registerResult.error.message.includes('User already registered')) {
           return { 
             success: false, 
@@ -192,7 +165,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (loginResult.error) {
         console.error('❌ Login error:', loginResult.error);
         
-        // Handle specific error cases
         if (loginResult.error.message.includes('Invalid login credentials')) {
           return { 
             success: false, 
@@ -224,30 +196,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const logout = async () => {
-    try {
-      if (user) {
-        console.log('🚪 Logging out user:', user.username);
-      }
-      
-      const logoutResult = await Promise.race([
-        supabase.auth.signOut(),
-        new Promise<{ error: { message: string } }>((_, reject) => 
-          setTimeout(() => reject({ error: { message: 'Logout timeout' } }), 5000)
-        )
-      ]);
-      
-      if (logoutResult.error) {
-        console.error('❌ Logout error:', logoutResult.error);
-      } else {
-        console.log('✅ Logout successful');
-      }
-    } catch (error) {
-      console.error('❌ Logout error:', error);
-      // Force logout on timeout
-      setUser(null);
-      setSession(null);
-    }
+  const logout = () => {
+    console.log('🚪 Logging out user immediately...');
+    
+    // Immediately clear state
+    setUser(null);
+    setSession(null);
+    
+    // Attempt to sign out from Supabase in background (don't wait for it)
+    supabase.auth.signOut().then(() => {
+      console.log('✅ Supabase logout completed');
+    }).catch((error) => {
+      console.error('❌ Supabase logout error (ignored):', error);
+    });
+    
+    console.log('✅ Logout completed immediately');
   };
 
   const value: AuthContextType = {

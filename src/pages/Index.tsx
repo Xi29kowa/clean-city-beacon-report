@@ -327,10 +327,10 @@ const Index = () => {
           <div className="hidden md:flex items-center justify-end w-48 flex-shrink-0">
             {isLoggedIn ? (
               <div className="flex items-center space-x-3">
-                {/* User Profile Widget */}
+                {/* User Profile Widget - Removed "Hallo," text */}
                 <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
                   <User className="w-5 h-5 text-green-600" />
-                  <span className="text-sm font-medium text-green-800">Hallo, {user?.username}!</span>
+                  <span className="text-sm font-medium text-green-800">{user?.username}!</span>
                 </div>
                 <Button
                   variant="outline"
@@ -439,10 +439,10 @@ const Index = () => {
             <div className="border-t border-gray-200 pt-4 space-y-2">
               {isLoggedIn ? (
                 <div className="space-y-2">
-                  {/* Mobile User Profile Widget */}
+                  {/* Mobile User Profile Widget - Removed "Hallo," text */}
                   <div className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-lg">
                     <User className="w-5 h-5 text-green-600" />
-                    <span className="text-sm font-medium text-green-800">Hallo, {user?.username}!</span>
+                    <span className="text-sm font-medium text-green-800">{user?.username}!</span>
                   </div>
                   <Button
                     variant="ghost"
