@@ -27,11 +27,13 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
   const [selectedPartnerMunicipality, setSelectedPartnerMunicipality] = useState<string>('');
 
   const handleWasteBinSelect = (binId: string) => {
-    console.log('Waste bin selected in EnhancedLocationPicker:', binId);
+    console.log('🗑️ Waste bin selected in EnhancedLocationPicker:', binId);
     
     // Automatically set the WasteBasket ID in the input field
+    console.log('📝 Setting waste bin ID to:', binId);
     setWasteBinId(binId);
     if (onWasteBinIdChange) {
+      console.log('📤 Calling onWasteBinIdChange with:', binId);
       onWasteBinIdChange(binId);
     }
     
@@ -88,6 +90,7 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
     const value = e.target.value;
     // Only allow numeric characters
     if (value === '' || /^\d+$/.test(value)) {
+      console.log('✏️ Manual waste bin ID change:', value);
       setWasteBinId(value);
       if (onWasteBinIdChange) {
         onWasteBinIdChange(value);

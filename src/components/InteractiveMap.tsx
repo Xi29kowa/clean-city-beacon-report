@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useState } from 'react';
 import { MapPin, Trash2, Loader2 } from 'lucide-react';
 import { WasteBin } from '@/types/location';
@@ -43,16 +42,19 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
       
       if (event.data.type === 'wasteBinClick') {
         const { binId } = event.data;
-        console.log('Waste bin clicked:', binId);
+        console.log('Waste bin clicked in InteractiveMap:', binId);
         
-        // Find the waste bin data
+        // IMPORTANT: Call the callback to inform parent component
+        if (onWasteBinSelect) {
+          console.log('Calling onWasteBinSelect with binId:', binId);
+          onWasteBinSelect(binId);
+        }
+        
+        // Find the waste bin data for display
         const bin = wasteBins.find(b => b.id === binId);
         if (bin) {
           console.log('Found bin data:', bin);
           setSelectedBin(bin);
-          if (onWasteBinSelect) {
-            onWasteBinSelect(binId);
-          }
         } else {
           console.log('Bin not found in data, creating mock data for:', binId);
           // Create mock data for bins not in our dataset
@@ -65,9 +67,6 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
             type: 'general'
           };
           setSelectedBin(mockBin);
-          if (onWasteBinSelect) {
-            onWasteBinSelect(binId);
-          }
         }
       }
     };
@@ -237,7 +236,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
         <div className="p-3 bg-gray-50 rounded-b-lg">
           <p className="text-xs text-gray-600 flex items-center gap-2">
             <MapPin className="w-3 h-3" />
-            Klicken Sie auf einen Mülleimer-Marker um Details anzuzeigen. Die Karte navigiert automatisch zu eingegebenen Adressen.
+            💡 Klicken Sie auf einen Mülleimer-Marker um die ID automatisch zu übernehmen und Details anzuzeigen.
             {isMapLoading && <span className="text-orange-600">(Lädt...)</span>}
             {!isMapLoading && isMapReady && <span className="text-green-600">(Bereit)</span>}
           </p>
