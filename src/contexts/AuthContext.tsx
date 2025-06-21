@@ -35,11 +35,11 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // Set up auth state listener but DON'T auto-restore session
+  // Set up auth state listener and auto-restore session
   useEffect(() => {
-    console.log('🚀 Setting up auth state listener (no auto-login)...');
+    console.log('🚀 Setting up auth state listener with session restoration...');
     console.log('Environment:', {
       origin: typeof window !== 'undefined' ? window.location.origin : 'SSR',
       userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'SSR'
@@ -96,7 +96,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     );
 
-    console.log('✅ Auth initialized - starting logged out');
+    // Auto-restore existing session on page load
+    const checkSession = async () => {
+      try {
+        console.log('🔍 Checking for existing session...');
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('❌ Session check error:', error);
+          setLoading(false);
+          return;
+        }
+
+        if (session) {
+          console.log('✅ Found existing session, restoring user');
+          setSession(session);
+          // User will be set by the auth state change event
+        } else {
+          console.log('ℹ️ No existing session found');
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('❌ Session restoration error:', error);
+        setLoading(false);
+      }
+    };
+
+    checkSession();
 
     return () => {
       subscription.unsubscribe();
@@ -226,6 +252,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (result?.data?.user) {
         console.log('✅ Login successful:', result.data.user.email);
+        // Session will be set automatically by onAuthStateChange
         return { success: true };
       }
 
@@ -244,21 +271,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const logout = () => {
-    console.log('🚪 Logging out user immediately...');
+  const logout = async () => {
+    console.log('🚪 Logging out user...');
     
-    // Immediately clear state
+    try {
+      // Sign out from Supabase (this will also clear localStorage automatically)
+      await supabase.auth.signOut();
+      console.log('✅ Supabase logout completed');
+    } catch (error) {
+      console.error('❌ Supabase logout error:', error);
+    }
+    
+    // Clear state immediately
     setUser(null);
     setSession(null);
     
-    // Attempt to sign out from Supabase in background (don't wait for it)
-    supabase.auth.signOut().then(() => {
-      console.log('✅ Supabase logout completed');
-    }).catch((error) => {
-      console.error('❌ Supabase logout error (ignored):', error);
-    });
-    
-    console.log('✅ Logout completed immediately');
+    console.log('✅ Logout completed');
   };
 
   const value: AuthContextType = {

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Camera, MapPin, Leaf, CheckCircle, ArrowRight, Upload, Menu, X, Info, Shield, Phone, User, LogIn, Share2, Copy, Wifi, Battery, Zap, Database, Monitor, LogOut } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -14,6 +13,7 @@ import NotificationDialog from "@/components/NotificationDialog";
 import LocationPicker from "@/components/LocationPicker";
 import { useStatistics } from "@/hooks/useStatistics";
 import { useBinReports } from "@/hooks/useBinReports";
+import EnhancedLocationPicker from "@/components/EnhancedLocationPicker";
 
 const Index = () => {
   const [currentView, setCurrentView] = useState('home');
@@ -735,7 +735,7 @@ const Index = () => {
     <div className="min-h-screen bg-gray-50">
       {renderHeader()}
       
-      <div className="container mx-auto px-4 py-8 max-w-2xl">
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
         <Card>
           <CardHeader>
             <CardTitle className="text-2xl text-green-800 flex items-center">
@@ -748,8 +748,8 @@ const Index = () => {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Enhanced Location Input with Map */}
-              <LocationPicker
+              {/* Enhanced Location Input with Integrated Map */}
+              <EnhancedLocationPicker
                 value={formData.location}
                 onChange={handleLocationChange}
                 onPartnerMunicipalityChange={handlePartnerMunicipalityChange}
