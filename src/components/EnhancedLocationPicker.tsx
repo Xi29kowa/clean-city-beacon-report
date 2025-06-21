@@ -5,6 +5,7 @@ import { wasteBins } from '@/data/wasteBins';
 import AddressInput from './AddressInput';
 import WasteBinDisplay from './WasteBinDisplay';
 import InteractiveMap from './InteractiveMap';
+import { Input } from '@/components/ui/input';
 
 interface EnhancedLocationPickerProps extends LocationPickerProps {
   coordinates?: { lat: number; lng: number } | null;
@@ -19,6 +20,7 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
 }) => {
   const [selectedWasteBin, setSelectedWasteBin] = useState<WasteBin | null>(null);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(coordinates || null);
+  const [wasteBinId, setWasteBinId] = useState('');
 
   const handleWasteBinSelect = (binId: string) => {
     console.log('Waste bin selected in EnhancedLocationPicker:', binId);
@@ -99,6 +101,20 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
         onWasteBinSelect={handleWasteBinSelect}
         center={mapCenter}
       />
+
+      {/* Mülleimer ID Field */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          🗑️ Mülleimer ID
+        </label>
+        <Input
+          type="text"
+          value={wasteBinId}
+          onChange={(e) => setWasteBinId(e.target.value)}
+          placeholder="Mülleimer ID eingeben..."
+          className="w-full"
+        />
+      </div>
     </div>
   );
 };
