@@ -6,14 +6,19 @@ import AddressInput from './AddressInput';
 import WasteBinDisplay from './WasteBinDisplay';
 import InteractiveMap from './InteractiveMap';
 
-const EnhancedLocationPicker: React.FC<LocationPickerProps> = ({
+interface EnhancedLocationPickerProps extends LocationPickerProps {
+  coordinates?: { lat: number; lng: number } | null;
+}
+
+const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
   value,
   onChange,
   onPartnerMunicipalityChange,
-  onWasteBinSelect
+  onWasteBinSelect,
+  coordinates
 }) => {
   const [selectedWasteBin, setSelectedWasteBin] = useState<WasteBin | null>(null);
-  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(coordinates || null);
 
   const handleWasteBinSelect = (binId: string) => {
     console.log('Waste bin selected in EnhancedLocationPicker:', binId);
@@ -64,6 +69,14 @@ const EnhancedLocationPicker: React.FC<LocationPickerProps> = ({
       setMapCenter(coordinates);
     }
   };
+
+  // Update map center when coordinates prop changes
+  React.useEffect(() => {
+    if (coordinates) {
+      console.log('Coordinates prop changed, updating map center:', coordinates);
+      setMapCenter(coordinates);
+    }
+  }, [coordinates]);
 
   return (
     <div className="space-y-4">

@@ -25,7 +25,8 @@ const Index = () => {
     photo: null,
     issueType: '',
     comment: '',
-    partnerMunicipality: ''
+    partnerMunicipality: '',
+    wasteBinId: ''
   });
   const [locationCoordinates, setLocationCoordinates] = useState<{ lat: number; lng: number } | null>(null);
   const [addressSuggestions, setAddressSuggestions] = useState([]);
@@ -118,6 +119,15 @@ const Index = () => {
     setFormData(prev => ({ ...prev, partnerMunicipality: municipality || '' }));
   };
 
+  const handleWasteBinSelect = (binId: string, binLocation: string) => {
+    console.log('Waste bin selected in Index:', binId, binLocation);
+    setFormData(prev => ({ 
+      ...prev, 
+      wasteBinId: binId,
+      location: binLocation || prev.location
+    }));
+  };
+
   const handlePhotoUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -137,7 +147,8 @@ const Index = () => {
       issueType: formData.issueType,
       comment: formData.comment?.trim() || null,
       photo: formData.photo?.name || 'none',
-      partnerMunicipality: formData.partnerMunicipality
+      partnerMunicipality: formData.partnerMunicipality,
+      wasteBinId: formData.wasteBinId
     });
     
     if (!formData.location?.trim()) {
@@ -178,7 +189,14 @@ const Index = () => {
     if (reportId) {
       setCurrentReportId(reportId);
       setCurrentView('confirmation');
-      setFormData({ location: '', photo: null, issueType: '', comment: '', partnerMunicipality: '' });
+      setFormData({ 
+        location: '', 
+        photo: null, 
+        issueType: '', 
+        comment: '', 
+        partnerMunicipality: '',
+        wasteBinId: '' 
+      });
       setLocationCoordinates(null);
       toast({
         title: "Meldung erfolgreich!",
@@ -753,7 +771,24 @@ const Index = () => {
                 value={formData.location}
                 onChange={handleLocationChange}
                 onPartnerMunicipalityChange={handlePartnerMunicipalityChange}
+                onWasteBinSelect={handleWasteBinSelect}
+                coordinates={locationCoordinates}
               />
+
+              {/* Waste Bin ID Display Field */}
+              {formData.wasteBinId && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    🗑️ Ausgewählter Mülleimer
+                  </label>
+                  <Input
+                    type="text"
+                    value={`Mülleimer ID: ${formData.wasteBinId}`}
+                    readOnly
+                    className="bg-blue-50 border-blue-200 text-blue-800 font-medium"
+                  />
+                </div>
+              )}
 
               {/* Partner Municipality Display */}
               <div>
