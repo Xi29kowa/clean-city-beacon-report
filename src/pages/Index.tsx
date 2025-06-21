@@ -216,7 +216,7 @@ const Index = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    console.log('Form submission started with data:', {
+    console.log('🚀 CRITICAL - Form submission started with data:', {
       location: formData.location,
       issueType: formData.issueType,
       comment: formData.comment?.trim() || null,
@@ -252,12 +252,15 @@ const Index = () => {
       return;
     }
     
+    console.log('🗑️ CRITICAL - PASSING wasteBinId to submitReport:', formData.wasteBinId);
+    
     const reportId = await submitReport({
       location: formData.location.trim(),
       issue_type: formData.issueType,
       comment: formData.comment?.trim() || null,
       photo: formData.photo,
-      partner_municipality: formData.partnerMunicipality || null
+      partner_municipality: formData.partnerMunicipality || null,
+      waste_bin_id: formData.wasteBinId // CRITICAL: Pass the waste_bin_id here!
     });
 
     if (reportId) {
@@ -596,7 +599,11 @@ const Index = () => {
                 onChange={handleLocationChange}
                 onPartnerMunicipalityChange={handlePartnerMunicipalityChange}
                 onWasteBinSelect={handleWasteBinSelect}
-                onWasteBinIdChange={(id) => setFormData(prev => ({ ...prev, wasteBinId: id }))}
+                onWasteBinIdChange={(id) => {
+                  console.log('🗑️ CRITICAL - Updating wasteBinId in formData to:', id);
+                  setFormData(prev => ({ ...prev, wasteBinId: id }));
+                }}
+                wasteBinId={formData.wasteBinId}
               />
 
               {/* Problem Type */}
