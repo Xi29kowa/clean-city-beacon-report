@@ -1,5 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/router';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -34,7 +34,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import { toast } from "@/components/ui/use-toast"
 import { Toaster } from "@/components/ui/toaster"
-import { partnerMunicipalities } from '@/data/municipalities';
+import { ContactInfo } from '@/types/form';
+import { municipalities } from '@/data/municipalities';
 import EnhancedLocationPicker from '@/components/EnhancedLocationPicker';
 
 const formSchema = z.object({
@@ -73,6 +74,7 @@ const Index = () => {
     wasteBinLocation: ''
   });
 
+  const router = useRouter();
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -308,7 +310,7 @@ const Index = () => {
                     <div className="ml-3">
                       <h3 className="text-sm font-medium text-yellow-800">
                         Hinweis: Sie haben eine Adresse in{" "}
-                        {partnerMunicipalities.find((m) => m.value === partnerMunicipality)?.label}
+                        {municipalities.find((m) => m.value === partnerMunicipality)?.label}
                         ausgewählt.
                       </h3>
                       <div className="mt-2 text-sm text-yellow-700">
