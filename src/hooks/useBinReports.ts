@@ -25,13 +25,14 @@ export const useBinReports = () => {
     setIsSubmitting(true);
     
     try {
-      console.log('Starting report submission with data:', reportData);
+      console.log('🚀 Starting report submission with data:', reportData);
+      console.log('🗑️ WASTE BIN ID TO SAVE:', reportData.waste_bin_id);
       
       let photoUrl = null;
 
       // Upload photo if provided
       if (reportData.photo) {
-        console.log('Uploading photo:', reportData.photo.name);
+        console.log('📸 Uploading photo:', reportData.photo.name);
         const fileExt = reportData.photo.name.split('.').pop();
         const fileName = `${Date.now()}.${fileExt}`;
         
@@ -46,11 +47,11 @@ export const useBinReports = () => {
             .from('bin-photos')
             .getPublicUrl(fileName);
           photoUrl = publicUrl;
-          console.log('Photo uploaded successfully:', photoUrl);
+          console.log('📸 Photo uploaded successfully:', photoUrl);
         }
       }
 
-      // Prepare data for insertion - ensure waste_bin_id is properly included
+      // Prepare data for insertion - KRITISCH: waste_bin_id richtig übertragen
       const insertData = {
         location: reportData.location.trim(),
         issue_type: reportData.issue_type,
@@ -59,20 +60,21 @@ export const useBinReports = () => {
         partner_municipality: reportData.partner_municipality || null,
         user_id: user.id,
         status: 'in_progress',
-        waste_bin_id: reportData.waste_bin_id || null // Make sure this is included
+        waste_bin_id: reportData.waste_bin_id || null // HIER IST DAS WICHTIGE FELD!
       };
 
-      console.log('Inserting report data with waste_bin_id:', insertData);
+      console.log('💾 FINAL INSERT DATA WITH WASTE_BIN_ID:', insertData);
+      console.log('🗑️ WASTE_BIN_ID VALUE:', insertData.waste_bin_id);
 
       // Insert the bin report
       const { data, error } = await supabase
         .from('bin_reports')
         .insert(insertData)
-        .select('id')
+        .select('id, waste_bin_id')
         .single();
 
       if (error) {
-        console.error('Error submitting report:', error);
+        console.error('❌ Error submitting report:', error);
         console.error('Error details:', {
           message: error.message,
           details: error.details,
@@ -82,10 +84,11 @@ export const useBinReports = () => {
         return null;
       }
 
-      console.log('Report submitted successfully with data:', data);
+      console.log('✅ Report submitted successfully with data:', data);
+      console.log('✅ CONFIRMED WASTE_BIN_ID SAVED:', data.waste_bin_id);
       return data.id;
     } catch (error) {
-      console.error('Error submitting report:', error);
+      console.error('❌ Error submitting report:', error);
       return null;
     } finally {
       setIsSubmitting(false);
