@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { LocationPickerProps, WasteBin } from '@/types/location';
 import { wasteBins } from '@/data/wasteBins';
@@ -163,10 +162,6 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
         <p className="text-xs text-gray-500 mt-1">
           💡 Tipp: Klicken Sie auf einen Mülleimer-Marker auf der Karte, um die ID automatisch zu übernehmen
           {wasteBinId && <span className="text-green-600 font-medium"> ✓ ID {wasteBinId} ausgewählt</span>}
-        </p>
-        {/* DEBUG INFO - zeigt aktuellen Wert */}
-        <p className="text-xs text-blue-600 mt-1">
-          🔧 DEBUG: Aktueller Wert = "{wasteBinId}" (Länge: {wasteBinId.length})
         </p>
       </div>
 
