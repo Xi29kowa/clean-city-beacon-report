@@ -100,7 +100,7 @@ const UserAccount = () => {
 
   const loadUserReports = async () => {
     try {
-      console.log('🔄 LOADING REPORTS FOR USER:', user?.id);
+      console.log('Loading reports for user:', user?.id);
       const { data, error } = await supabase
         .from('bin_reports')
         .select('id, location, issue_type, comment, created_at, status, partner_municipality, waste_bin_id')
@@ -108,15 +108,15 @@ const UserAccount = () => {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('❌ Error loading reports:', error);
+        console.error('Error loading reports:', error);
         return;
       }
 
       if (data) {
-        console.log('✅ REPORTS LOADED - COUNT:', data.length);
-        // Generate case numbers for reports and log waste_bin_id
+        console.log('🗑️ REPORTS LOADED WITH WASTE_BIN_ID:', data);
+        // Generate case numbers for reports
         const reportsWithCaseNumbers = data.map(report => {
-          console.log(`📋 Report ${report.id}: waste_bin_id = "${report.waste_bin_id}"`);
+          console.log(`🗑️ Report ${report.id} has waste_bin_id: "${report.waste_bin_id}"`);
           return {
             ...report,
             case_number: `CASE-${Math.random().toString(36).substr(2, 8).toUpperCase()}`
@@ -124,10 +124,9 @@ const UserAccount = () => {
         });
 
         setReports(reportsWithCaseNumbers);
-        console.log('✅ FINAL REPORTS STATE:', reportsWithCaseNumbers);
       }
     } catch (error) {
-      console.error('❌ Error loading reports:', error);
+      console.error('Error loading reports:', error);
     } finally {
       setIsLoading(false);
     }
@@ -225,17 +224,10 @@ const UserAccount = () => {
   };
 
   const deleteReport = async (reportId: string) => {
-    console.log('🗑️🔥 STARTING PERMANENT DELETION OF REPORT:', reportId);
-    
-    // STEP 1: IMMEDIATELY remove from UI state to give instant feedback
-    const originalReports = [...reports];
-    const updatedReports = reports.filter(report => report.id !== reportId);
-    setReports(updatedReports);
-    console.log('⚡ IMMEDIATELY REMOVED FROM UI - NEW COUNT:', updatedReports.length);
+    console.log('🗑️🗑️🗑️ PERMANENTLY DELETING REPORT:', reportId);
     
     try {
-      // STEP 2: Delete from database
-      console.log('💀 DELETING FROM DATABASE...');
+      // FIRST: DELETE FROM DATABASE IMMEDIATELY
       const { error } = await supabase
         .from('bin_reports')
         .delete()
@@ -243,34 +235,31 @@ const UserAccount = () => {
         .eq('user_id', user?.id);
 
       if (error) {
-        console.error('❌ DATABASE DELETION FAILED:', error);
-        // Restore original state on database error
-        setReports(originalReports);
+        console.error('❌ Database deletion failed:', error);
         toast({
           title: "Fehler",
-          description: "Fehler beim Löschen der Meldung aus der Datenbank.",
+          description: "Fehler beim Löschen der Meldung.",
           variant: "destructive"
         });
         return;
       }
 
-      console.log('✅ SUCCESSFULLY DELETED FROM DATABASE');
-      
-      // STEP 3: Show success message
+      console.log('✅ Report successfully DELETED from database');
+
+      // SECOND: REMOVE FROM UI STATE IMMEDIATELY
+      const updatedReports = reports.filter(report => report.id !== reportId);
+      setReports(updatedReports);
+      console.log('✅ Report REMOVED from UI, new count:', updatedReports.length);
+
       toast({
-        title: "🗑️ Meldung gelöscht",
-        description: "Die Meldung wurde PERMANENT und UNWIDERRUFLICH gelöscht!",
+        title: "Meldung gelöscht",
+        description: "Die Meldung wurde PERMANENT gelöscht.",
       });
-      
-      console.log('🎉 DELETION COMPLETE - REPORT IS GONE FOREVER');
-      
     } catch (error) {
-      console.error('💥 UNEXPECTED ERROR DURING DELETION:', error);
-      // Restore original state on unexpected error
-      setReports(originalReports);
+      console.error('❌ Unexpected error during deletion:', error);
       toast({
         title: "Fehler",
-        description: "Unerwarteter Fehler beim Löschen.",
+        description: "Fehler beim Löschen der Meldung.",
         variant: "destructive"
       });
     }
@@ -410,9 +399,9 @@ const UserAccount = () => {
                           <p className="text-gray-600">{getIssueTypeText(report.issue_type)}</p>
                         </div>
                         <div>
-                          <p className="font-medium">🗑️ Mülleimer-ID:</p>
+                          <p className="font-medium">Mülleimer-ID:</p>
                           <p className="text-gray-600 font-mono bg-gray-100 px-2 py-1 rounded">
-                            {report.waste_bin_id ? `🗑️ ${report.waste_bin_id}` : '❌ Nicht verfügbar'}
+                            {report.waste_bin_id ? `🗑️ ${report.waste_bin_id}` : 'Nicht verfügbar'}
                           </p>
                         </div>
                         {report.partner_municipality && (
