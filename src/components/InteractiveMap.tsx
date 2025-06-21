@@ -17,46 +17,65 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
 
   useEffect(() => {
     const handleMapMessage = (event: MessageEvent) => {
-      // Only accept messages from the trusted map origin
-      if (event.origin !== 'https://routenplanung.vercel.app') return;
+      console.log('🎯 Received message from:', event.origin);
+      console.log('📨 Message data:', event.data);
       
-      console.log('Received map message:', event.data);
+      // Accept messages from multiple possible origins
+      const allowedOrigins = [
+        'https://routenplanung.vercel.app',
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'https://nbg-wastebaskets-map.vercel.app'
+      ];
+      
+      if (!allowedOrigins.includes(event.origin)) {
+        console.log('❌ Message rejected from origin:', event.origin);
+        return;
+      }
       
       if (event.data.type === 'mapReady') {
-        console.log('Map is ready!');
+        console.log('✅ Map is ready!');
         setIsMapReady(true);
         setIsMapLoading(false);
         
         // Send any pending navigation
         if (pendingNavigationRef.current && mapIframeRef.current) {
-          console.log('Sending pending navigation:', pendingNavigationRef.current);
+          console.log('🧭 Sending pending navigation:', pendingNavigationRef.current);
           const navigationMessage = {
             type: 'navigateToLocation',
             coordinates: pendingNavigationRef.current,
             zoom: 17
           };
-          mapIframeRef.current.contentWindow?.postMessage(navigationMessage, 'https://routenplanung.vercel.app');
+          mapIframeRef.current.contentWindow?.postMessage(navigationMessage, event.origin);
           pendingNavigationRef.current = null;
         }
       }
       
-      if (event.data.type === 'wasteBinClick') {
-        const { binId } = event.data;
-        console.log('Waste bin clicked in InteractiveMap:', binId);
+      // Handle different possible message formats for waste bin clicks
+      if (event.data.type === 'wasteBinClick' || event.data.type === 'wasteBasketClick' || event.data.type === 'binClick') {
+        const binId = event.data.binId || event.data.wasteBasketId || event.data.id;
+        console.log('🗑️ Waste bin clicked in InteractiveMap, ID:', binId);
+        
+        if (!binId) {
+          console.log('❌ No bin ID found in message data:', event.data);
+          return;
+        }
         
         // IMPORTANT: Call the callback to inform parent component
         if (onWasteBinSelect) {
-          console.log('Calling onWasteBinSelect with binId:', binId);
+          console.log('📤 Calling onWasteBinSelect with binId:', binId);
           onWasteBinSelect(binId);
+        } else {
+          console.log('❌ onWasteBinSelect callback not available');
         }
         
         // Find the waste bin data for display
         const bin = wasteBins.find(b => b.id === binId);
         if (bin) {
-          console.log('Found bin data:', bin);
+          console.log('✅ Found bin data:', bin);
           setSelectedBin(bin);
         } else {
-          console.log('Bin not found in data, creating mock data for:', binId);
+          console.log('⚠️ Bin not found in data, creating mock data for:', binId);
           // Create mock data for bins not in our dataset
           const mockBin: WasteBin = {
             id: binId,
@@ -69,19 +88,36 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
           setSelectedBin(mockBin);
         }
       }
+      
+      // Handle any click events that might contain waste bin info
+      if (event.data.type === 'click' && (event.data.wasteBasketId || event.data.binId)) {
+        const binId = event.data.wasteBasketId || event.data.binId;
+        console.log('🖱️ Generic click with bin ID:', binId);
+        
+        if (onWasteBinSelect) {
+          console.log('📤 Calling onWasteBinSelect from generic click:', binId);
+          onWasteBinSelect(binId);
+        }
+      }
     };
 
+    // Add comprehensive message listener
     window.addEventListener('message', handleMapMessage);
-    return () => window.removeEventListener('message', handleMapMessage);
+    console.log('👂 Message listener added');
+    
+    return () => {
+      window.removeEventListener('message', handleMapMessage);
+      console.log('🔇 Message listener removed');
+    };
   }, [onWasteBinSelect]);
 
   // Handle iframe load
   const handleIframeLoad = () => {
-    console.log('Iframe loaded');
+    console.log('🌐 Iframe loaded');
     // Give the iframe a moment to initialize
     setTimeout(() => {
       if (!isMapReady) {
-        console.log('Map ready timeout, assuming ready');
+        console.log('⏰ Map ready timeout, assuming ready');
         setIsMapReady(true);
         setIsMapLoading(false);
       }
@@ -91,10 +127,10 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
   // Send navigation command to map when center changes
   useEffect(() => {
     if (center) {
-      console.log('Navigation requested to:', center);
+      console.log('🧭 Navigation requested to:', center);
       
       if (mapIframeRef.current && isMapReady) {
-        console.log('Navigating map to coordinates immediately:', center);
+        console.log('📍 Navigating map to coordinates immediately:', center);
         const navigationMessage = {
           type: 'navigateToLocation',
           coordinates: center,
@@ -104,7 +140,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
         // Send message to iframe
         mapIframeRef.current.contentWindow?.postMessage(navigationMessage, 'https://routenplanung.vercel.app');
       } else {
-        console.log('Map not ready, storing pending navigation:', center);
+        console.log('⏳ Map not ready, storing pending navigation:', center);
         pendingNavigationRef.current = center;
         
         // Try multiple times with increasing delays
@@ -112,7 +148,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
         attempts.forEach((delay, index) => {
           setTimeout(() => {
             if (mapIframeRef.current && pendingNavigationRef.current) {
-              console.log(`Retry ${index + 1}: Attempting navigation to:`, pendingNavigationRef.current);
+              console.log(`🔄 Retry ${index + 1}: Attempting navigation to:`, pendingNavigationRef.current);
               const navigationMessage = {
                 type: 'navigateToLocation',
                 coordinates: pendingNavigationRef.current,
@@ -182,6 +218,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
             title="Interaktive Mülleimer Karte"
             style={{ minHeight: '384px' }}
             onLoad={handleIframeLoad}
+            allow="geolocation"
           />
           
           {/* Loading overlay */}
@@ -239,6 +276,9 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
             💡 Klicken Sie auf einen Mülleimer-Marker um die ID automatisch zu übernehmen und Details anzuzeigen.
             {isMapLoading && <span className="text-orange-600">(Lädt...)</span>}
             {!isMapLoading && isMapReady && <span className="text-green-600">(Bereit)</span>}
+          </p>
+          <p className="text-xs text-gray-500 mt-1">
+            🔍 Debug: Schauen Sie in die Browser-Konsole für Message-Logs
           </p>
         </div>
       </div>
