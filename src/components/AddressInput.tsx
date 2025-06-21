@@ -10,12 +10,14 @@ interface AddressInputProps {
   value: string;
   onChange: (location: string, coordinates?: { lat: number; lng: number }) => void;
   onPartnerMunicipalityChange: (municipality: string | null) => void;
+  onLocationSelect?: (coordinates: { lat: number; lng: number }) => void;
 }
 
 const AddressInput: React.FC<AddressInputProps> = ({
   value,
   onChange,
-  onPartnerMunicipalityChange
+  onPartnerMunicipalityChange,
+  onLocationSelect
 }) => {
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
@@ -29,7 +31,7 @@ const AddressInput: React.FC<AddressInputProps> = ({
     if (query.length < 3) return [];
 
     try {
-      // Enhanced search parameters for better German address results
+      // More precise search strategy using structured query
       const searchParams = new URLSearchParams({
         format: 'json',
         addressdetails: '1',
@@ -37,15 +39,28 @@ const AddressInput: React.FC<AddressInputProps> = ({
         countrycodes: 'DE',
         'accept-language': 'de',
         bounded: '1',
-        viewbox: '10.9,49.3,11.2,49.6', // Nürnberg area bounds
-        q: query
+        viewbox: '10.8,49.2,11.3,49.7', // Expanded Nürnberg metropolitan area
+        extratags: '1',
+        namedetails: '1'
       });
+
+      // Try structured search first for better precision
+      let searchQuery = query;
+      if (query.includes(',')) {
+        // If comma present, treat as structured input
+        searchQuery = query;
+      } else {
+        // Add city context for better results
+        searchQuery = `${query}, Nürnberg`;
+      }
+
+      searchParams.set('q', searchQuery);
 
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?${searchParams}`,
         {
           headers: {
-            'User-Agent': 'WasteBinReporter/1.0'
+            'User-Agent': 'CleanCity/1.0 (https://cleancity.app)'
           }
         }
       );
@@ -58,18 +73,54 @@ const AddressInput: React.FC<AddressInputProps> = ({
       
       return data
         .filter((item: any) => {
-          // Filter for relevant address types
-          return item.type === 'house' || 
-                 item.type === 'building' || 
-                 item.type === 'address' ||
-                 item.class === 'place' ||
-                 (item.address && (item.address.house_number || item.address.road));
+          // More strict filtering for relevant addresses
+          const hasAddress = item.address && (
+            item.address.house_number || 
+            item.address.road || 
+            item.address.pedestrian ||
+            item.address.residential
+          );
+          
+          const isRelevantType = [
+            'house', 'building', 'address', 'residential',
+            'commercial', 'industrial', 'retail'
+          ].includes(item.type) || 
+          ['place', 'highway', 'amenity'].includes(item.class);
+
+          // Prioritize results within Nürnberg area
+          const lat = parseFloat(item.lat);
+          const lon = parseFloat(item.lon);
+          const inNuernbergArea = lat >= 49.3 && lat <= 49.6 && lon >= 10.9 && lon <= 11.2;
+
+          return hasAddress && isRelevantType && inNuernbergArea;
         })
-        .map((item: any) => ({
-          display_name: item.display_name,
-          lat: item.lat,
-          lon: item.lon
-        }))
+        .map((item: any) => {
+          // Create cleaner display names
+          let displayName = item.display_name;
+          
+          if (item.address) {
+            const parts = [];
+            if (item.address.house_number && item.address.road) {
+              parts.push(`${item.address.road} ${item.address.house_number}`);
+            } else if (item.address.road) {
+              parts.push(item.address.road);
+            }
+            
+            if (item.address.suburb) parts.push(item.address.suburb);
+            if (item.address.city) parts.push(item.address.city);
+            else if (item.address.town) parts.push(item.address.town);
+            
+            if (parts.length > 0) {
+              displayName = parts.join(', ');
+            }
+          }
+
+          return {
+            display_name: displayName,
+            lat: item.lat,
+            lon: item.lon
+          };
+        })
         .slice(0, 6); // Limit to 6 suggestions
     } catch (error) {
       console.error('Error fetching address suggestions:', error);
@@ -109,6 +160,11 @@ const AddressInput: React.FC<AddressInputProps> = ({
     setShowSuggestions(false);
     setAddressSuggestions([]);
     
+    // Navigate map to selected location
+    if (onLocationSelect) {
+      onLocationSelect({ lat, lng });
+    }
+    
     const municipality = checkPartnerMunicipality(lat, lng);
     onPartnerMunicipalityChange(municipality);
   };
@@ -127,6 +183,11 @@ const AddressInput: React.FC<AddressInputProps> = ({
         const address = await reverseGeocode(latitude, longitude);
         
         onChange(address, { lat: latitude, lng: longitude });
+        
+        // Navigate map to current location
+        if (onLocationSelect) {
+          onLocationSelect({ lat: latitude, lng: longitude });
+        }
         
         const municipality = checkPartnerMunicipality(latitude, longitude);
         onPartnerMunicipalityChange(municipality);

@@ -13,6 +13,7 @@ const EnhancedLocationPicker: React.FC<LocationPickerProps> = ({
   onWasteBinSelect
 }) => {
   const [selectedWasteBin, setSelectedWasteBin] = useState<WasteBin | null>(null);
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
 
   const handleWasteBinSelect = (binId: string) => {
     const selectedBin = wasteBins.find(bin => bin.id === binId);
@@ -32,12 +33,17 @@ const EnhancedLocationPicker: React.FC<LocationPickerProps> = ({
     }
   };
 
+  const handleLocationSelect = (coordinates: { lat: number; lng: number }) => {
+    setMapCenter(coordinates);
+  };
+
   return (
     <div className="space-y-4">
       <AddressInput
         value={value}
         onChange={onChange}
         onPartnerMunicipalityChange={onPartnerMunicipalityChange}
+        onLocationSelect={handleLocationSelect}
       />
 
       {selectedWasteBin && (
@@ -47,7 +53,10 @@ const EnhancedLocationPicker: React.FC<LocationPickerProps> = ({
         />
       )}
 
-      <InteractiveMap onWasteBinSelect={handleWasteBinSelect} />
+      <InteractiveMap 
+        onWasteBinSelect={handleWasteBinSelect}
+        center={mapCenter}
+      />
     </div>
   );
 };

@@ -4,9 +4,10 @@ import { MapPin } from 'lucide-react';
 
 interface InteractiveMapProps {
   onWasteBinSelect?: (binId: string) => void;
+  center?: { lat: number; lng: number } | null;
 }
 
-const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect }) => {
+const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, center }) => {
   const mapIframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
@@ -22,6 +23,19 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect }) => 
     window.addEventListener('message', handleMapMessage);
     return () => window.removeEventListener('message', handleMapMessage);
   }, [onWasteBinSelect]);
+
+  // Send navigation command to map when center changes
+  useEffect(() => {
+    if (center && mapIframeRef.current) {
+      const navigationMessage = {
+        type: 'navigateToLocation',
+        coordinates: center,
+        zoom: 17 // Street-level zoom
+      };
+      
+      mapIframeRef.current.contentWindow?.postMessage(navigationMessage, 'https://routenplanung.vercel.app');
+    }
+  }, [center]);
 
   return (
     <div>
@@ -39,7 +53,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect }) => 
         <div className="p-3 bg-gray-50 rounded-b-lg">
           <p className="text-xs text-gray-600 flex items-center gap-2">
             <MapPin className="w-3 h-3" />
-            Klicken Sie auf einen Mülleimer-Marker um ihn auszuwählen. Sie können auch einen Standort ohne spezifischen Mülleimer melden.
+            Klicken Sie auf einen Mülleimer-Marker um ihn auszuwählen. Die Karte navigiert automatisch zu ausgewählten Adressen.
           </p>
         </div>
       </div>
