@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { MapPin, Navigation, X } from 'lucide-react';
 import { AddressSuggestion } from '@/types/location';
-import { municipalities } from '@/data/municipalities';
+import { partnerMunicipalities } from '@/data/municipalities';
 
 interface AddressInputProps {
   value: string;
@@ -92,7 +91,7 @@ const AddressInput: React.FC<AddressInputProps> = ({
 
   const detectMunicipality = (suggestion: AddressSuggestion) => {
     const cityName = suggestion.address?.city || suggestion.address?.town || suggestion.address?.village || '';
-    const municipality = municipalities.find(m => 
+    const municipality = partnerMunicipalities.find(m => 
       cityName.toLowerCase().includes(m.label.toLowerCase())
     );
     return municipality?.value || null;
