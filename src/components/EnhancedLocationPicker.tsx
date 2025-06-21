@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { LocationPickerProps, WasteBin } from '@/types/location';
 import { wasteBins } from '@/data/wasteBins';
+import { partnerMunicipalities } from '@/data/municipalities';
 import AddressInput from './AddressInput';
 import WasteBinDisplay from './WasteBinDisplay';
 import InteractiveMap from './InteractiveMap';
@@ -23,6 +24,7 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
   const [selectedWasteBin, setSelectedWasteBin] = useState<WasteBin | null>(null);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(coordinates || null);
   const [wasteBinId, setWasteBinId] = useState('');
+  const [selectedPartnerMunicipality, setSelectedPartnerMunicipality] = useState<string>('');
 
   const handleWasteBinSelect = (binId: string) => {
     console.log('Waste bin selected in EnhancedLocationPicker:', binId);
@@ -86,6 +88,13 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
     }
   };
 
+  const handlePartnerMunicipalityChange = (municipality: string | null) => {
+    setSelectedPartnerMunicipality(municipality || '');
+    if (onPartnerMunicipalityChange) {
+      onPartnerMunicipalityChange(municipality);
+    }
+  };
+
   // Update map center when coordinates prop changes
   useEffect(() => {
     if (coordinates) {
@@ -94,12 +103,18 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
     }
   }, [coordinates?.lat, coordinates?.lng]);
 
+  // Get municipality label for display
+  const getMunicipalityLabel = (value: string) => {
+    const municipality = partnerMunicipalities.find(m => m.value === value);
+    return municipality ? municipality.label : value;
+  };
+
   return (
     <div className="space-y-4">
       <AddressInput
         value={value}
         onChange={handleAddressChange}
-        onPartnerMunicipalityChange={onPartnerMunicipalityChange}
+        onPartnerMunicipalityChange={handlePartnerMunicipalityChange}
         onLocationSelect={handleLocationSelect}
       />
 
@@ -131,6 +146,21 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
           inputMode="numeric"
         />
       </div>
+
+      {/* Partner Stadtverwaltung Display */}
+      {selectedPartnerMunicipality && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            🏛️ Partner Stadtverwaltung
+          </label>
+          <Input
+            type="text"
+            value={getMunicipalityLabel(selectedPartnerMunicipality)}
+            readOnly
+            className="w-full bg-green-50 border-green-200 text-green-800 font-medium"
+          />
+        </div>
+      )}
     </div>
   );
 };
