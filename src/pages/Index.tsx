@@ -16,7 +16,7 @@ import { useBinReports } from "@/hooks/useBinReports";
 import EnhancedLocationPicker from "@/components/EnhancedLocationPicker";
 
 const Index = () => {
-  const [currentView, setCurrentView] = useState('report'); // Start directly with report form
+  const [currentView, setCurrentView] = useState('home');
   const [showMenu, setShowMenu] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -109,7 +109,6 @@ const Index = () => {
   }, [cityImages.length]);
 
   const handleLocationChange = (location: string, coordinates?: { lat: number; lng: number }) => {
-    console.log('Location changed in Index:', { location, coordinates });
     setFormData(prev => ({ ...prev, location }));
     if (coordinates) {
       setLocationCoordinates(coordinates);
@@ -117,7 +116,6 @@ const Index = () => {
   };
 
   const handlePartnerMunicipalityChange = (municipality: string | null) => {
-    console.log('Partner municipality changed:', municipality);
     setFormData(prev => ({ ...prev, partnerMunicipality: municipality || '' }));
   };
 
@@ -128,11 +126,6 @@ const Index = () => {
       wasteBinId: binId,
       location: binLocation || prev.location
     }));
-    
-    toast({
-      title: "Mülleimer ausgewählt!",
-      description: `Mülleimer ID: ${binId}`,
-    });
   };
 
   const handlePhotoUpload = (e) => {
@@ -756,6 +749,190 @@ const Index = () => {
     </div>
   );
 
+  const renderReportForm = () => (
+    <div className="min-h-screen bg-gray-50">
+      {renderHeader()}
+      
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-2xl text-green-800 flex items-center">
+              <Upload className="w-6 h-6 mr-2" />
+              Mülleimer melden
+            </CardTitle>
+            <p className="text-gray-600">
+              Helfen Sie uns, problematische Mülleimer schnell zu identifizieren
+            </p>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Enhanced Location Input with Integrated Map */}
+              <EnhancedLocationPicker
+                value={formData.location}
+                onChange={handleLocationChange}
+                onPartnerMunicipalityChange={handlePartnerMunicipalityChange}
+                onWasteBinSelect={handleWasteBinSelect}
+                coordinates={locationCoordinates}
+              />
+
+              {/* Mülleimer ID Display Field */}
+              {formData.wasteBinId && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    🗑️ Mülleimer ID
+                  </label>
+                  <Input
+                    type="text"
+                    value={formData.wasteBinId}
+                    readOnly
+                    className="bg-blue-50 border-blue-200 text-blue-800 font-medium"
+                    placeholder="Mülleimer ID wird nach Auswahl auf der Karte angezeigt"
+                  />
+                  <p className="text-xs text-blue-600 mt-1">
+                    ✅ Mülleimer auf der Karte ausgewählt
+                  </p>
+                </div>
+              )}
+
+              {!formData.wasteBinId && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    🗑️ Mülleimer ID
+                  </label>
+                  <Input
+                    type="text"
+                    value=""
+                    readOnly
+                    className="bg-gray-50 border-gray-200 text-gray-500"
+                    placeholder="Klicken Sie auf einen Mülleimer auf der Karte"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    💡 Klicken Sie auf einen Mülleimer-Marker auf der Karte um die ID anzuzeigen
+                  </p>
+                </div>
+              )}
+
+              {/* Partner Municipality Display */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  🏛️ Partner Stadtverwaltung
+                </label>
+                <Select 
+                  value={formData.partnerMunicipality} 
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, partnerMunicipality: value }))}
+                  disabled={true}
+                >
+                  <SelectTrigger className={formData.partnerMunicipality ? "bg-green-50 border-green-200" : "bg-gray-100"}>
+                    <SelectValue placeholder={
+                      formData.partnerMunicipality 
+                        ? partnerMunicipalities.find(p => p.value === formData.partnerMunicipality)?.label
+                        : "Wird automatisch basierend auf der Adresse ausgewählt"
+                    } />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {partnerMunicipalities.map((municipality) => (
+                      <SelectItem key={municipality.value} value={municipality.value}>
+                        {municipality.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {!formData.partnerMunicipality && formData.location && (
+                  <p className="text-xs text-orange-600 mt-1 bg-orange-50 p-2 rounded">
+                    ⚠️ Leider unterstützen wir derzeit nur Meldungen in ausgewählten Partnerstädten.
+                  </p>
+                )}
+                {formData.partnerMunicipality && (
+                  <p className="text-xs text-green-600 mt-1 bg-green-50 p-2 rounded">
+                    ✅ Zuständige Stadtverwaltung automatisch erkannt
+                  </p>
+                )}
+              </div>
+
+              {/* Foto Upload */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  📷 Foto (optional)
+                </label>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handlePhotoUpload}
+                    className="hidden"
+                    id="photo-upload"
+                  />
+                  <label htmlFor="photo-upload" className="cursor-pointer">
+                    <Camera className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                    <p className="text-gray-600">
+                      {formData.photo ? formData.photo.name : 'Foto aufnehmen oder auswählen'}
+                    </p>
+                  </label>
+                </div>
+              </div>
+
+              {/* Problem Type */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Problem-Art *
+                </label>
+                <Select 
+                  value={formData.issueType} 
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, issueType: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Wählen Sie das Problem aus" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="overfilled">🗑️ Überfüllt</SelectItem>
+                    <SelectItem value="broken">🔧 Beschädigt</SelectItem>
+                    <SelectItem value="smelly">💨 Stinkt</SelectItem>
+                    <SelectItem value="vandalized">⚠️ Vandalismus</SelectItem>
+                    <SelectItem value="missing">❌ Fehlt komplett</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Comment */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Zusätzliche Informationen (optional)
+                </label>
+                <Textarea
+                  placeholder="Beschreiben Sie das Problem genauer..."
+                  value={formData.comment}
+                  onChange={(e) => setFormData(prev => ({ ...prev, comment: e.target.value }))}
+                  rows={3}
+                />
+              </div>
+
+              {/* Submit Button */}
+              <Button
+                type="submit"
+                disabled={isSubmitting || !canSubmitReport}
+                className={`w-full py-3 text-lg ${
+                  canSubmitReport 
+                    ? "bg-green-500 hover:bg-green-600" 
+                    : "bg-gray-300 cursor-not-allowed"
+                }`}
+              >
+                {isSubmitting ? (
+                  <div className="flex items-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                    Wird gesendet...
+                  </div>
+                ) : (
+                  canSubmitReport ? 'Meldung absenden' : 'Standort in Partnerstadt erforderlich'
+                )}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+
   const renderConfirmation = () => (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50">
       {renderHeader()}
@@ -1303,8 +1480,31 @@ const Index = () => {
   // Main render logic
   return (
     <>
-      {/* Main Content - Start with report form */}
-      {renderReportForm()}
+      {/* Main Content */}
+      {(() => {
+        switch (currentView) {
+          case 'report':
+            return renderReportForm();
+          case 'confirmation':
+            return renderConfirmation();
+          case 'karte':
+            return isLoggedIn ? renderKarte() : renderHome();
+          case 'products':
+            return renderProducts();
+          case 'about':
+            return renderAbout();
+          case 'info':
+            return renderInfo();
+          case 'datenschutz':
+            return renderDatenschutz();
+          case 'impressum':
+            return renderImpressum();
+          case 'nutzungsbedingungen':
+            return renderNutzungsbedingungen();
+          default:
+            return renderHome();
+        }
+      })()}
 
       {/* Authentication Modal */}
       <AuthModal
