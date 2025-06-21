@@ -9,7 +9,7 @@ interface BinReportData {
   comment?: string | null;
   photo?: File | null;
   partner_municipality?: string | null;
-  waste_bin_id?: string;
+  waste_bin_id?: string | null;
 }
 
 export const useBinReports = () => {
@@ -60,11 +60,11 @@ export const useBinReports = () => {
         partner_municipality: reportData.partner_municipality || null,
         user_id: user.id,
         status: 'in_progress',
-        waste_bin_id: reportData.waste_bin_id || null // HIER IST DAS WICHTIGE FELD!
+        waste_bin_id: reportData.waste_bin_id  // HIER IST DAS WICHTIGE FELD!
       };
 
       console.log('💾 FINAL INSERT DATA WITH WASTE_BIN_ID:', insertData);
-      console.log('🗑️ WASTE_BIN_ID VALUE:', insertData.waste_bin_id);
+      console.log('🗑️ WASTE_BIN_ID VALUE BEING SAVED:', insertData.waste_bin_id);
 
       // Insert the bin report
       const { data, error } = await supabase
