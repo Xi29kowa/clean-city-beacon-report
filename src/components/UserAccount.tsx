@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Mail, Lock, MapPin, Phone, FileText, Calendar, Clock } from 'lucide-react';
+import { User, Mail, Lock, MapPin, Phone, FileText, Calendar, Clock, Trash2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -201,6 +201,41 @@ const UserAccount = () => {
       });
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  const deleteReport = async (reportId: string) => {
+    try {
+      const { error } = await supabase
+        .from('bin_reports')
+        .delete()
+        .eq('id', reportId)
+        .eq('user_id', user?.id);
+
+      if (error) {
+        console.error('Error deleting report:', error);
+        toast({
+          title: "Fehler",
+          description: "Fehler beim Löschen der Meldung.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      toast({
+        title: "Meldung gelöscht",
+        description: "Die Meldung wurde erfolgreich gelöscht.",
+      });
+
+      // Reload reports to update the list
+      await loadUserReports();
+    } catch (error) {
+      console.error('Error deleting report:', error);
+      toast({
+        title: "Fehler",
+        description: "Fehler beim Löschen der Meldung.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -416,11 +451,21 @@ const UserAccount = () => {
                             {getStatusText(report.status)}
                           </span>
                         </div>
-                        <div className="text-right text-sm text-gray-500">
-                          <div className="flex items-center space-x-1">
-                            <Calendar className="w-4 h-4" />
-                            <span>{formatDate(report.created_at)}</span>
+                        <div className="flex items-center space-x-2">
+                          <div className="text-right text-sm text-gray-500">
+                            <div className="flex items-center space-x-1">
+                              <Calendar className="w-4 h-4" />
+                              <span>{formatDate(report.created_at)}</span>
+                            </div>
                           </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => deleteReport(report.id)}
+                            className="text-red-600 border-red-200 hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         </div>
                       </div>
 
@@ -439,7 +484,7 @@ const UserAccount = () => {
                         {report.waste_bin_id && (
                           <div>
                             <p className="font-medium">Mülleimer ID:</p>
-                            <p className="text-gray-600">{report.waste_bin_id}</p>
+                            <p className="text-gray-600 font-mono bg-gray-100 px-2 py-1 rounded">{report.waste_bin_id}</p>
                           </div>
                         )}
                         {report.partner_municipality && (
