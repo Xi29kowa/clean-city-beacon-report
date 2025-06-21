@@ -410,7 +410,7 @@ const UserAccount = () => {
                         </div>
                         <div>
                           <p className="font-medium">🗑️ Mülleimer-ID:</p>
-                          <p className="text-gray-600">{report.waste_bin_id || 'Keine ID angegeben'}</p>
+                          <p className="text-gray-600">{report.waste_bin_id}</p>
                         </div>
                         {report.partner_municipality && (
                           <div>
