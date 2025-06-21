@@ -10,12 +10,22 @@ interface WasteBinDisplayProps {
 }
 
 const WasteBinDisplay: React.FC<WasteBinDisplayProps> = ({ wasteBin, onDeselect }) => {
-  const getFillLevelDisplay = (fillLevel: string) => {
-    switch (fillLevel) {
-      case 'high': return '🔴 Hoch';
-      case 'medium': return '🟡 Mittel';
-      case 'low': return '🟢 Niedrig';
+  const getStatusDisplay = (status: string) => {
+    switch (status) {
+      case 'full': return '🔴 Voll';
+      case 'overflowing': return '🔴 Überfüllt';
+      case 'empty': return '🟢 Leer';
+      case 'damaged': return '⚠️ Beschädigt';
       default: return '⚪ Unbekannt';
+    }
+  };
+
+  const getTypeDisplay = (type: string) => {
+    switch (type) {
+      case 'general': return 'Restmüll';
+      case 'recycling': return 'Wertstoff';
+      case 'organic': return 'Biomüll';
+      default: return 'Unbekannt';
     }
   };
 
@@ -29,7 +39,7 @@ const WasteBinDisplay: React.FC<WasteBinDisplayProps> = ({ wasteBin, onDeselect 
           <div className="space-y-1">
             <p className="text-sm text-blue-700 font-medium">{wasteBin.location}</p>
             <p className="text-xs text-blue-600">
-              ID: {wasteBin.id} • Füllstand: {getFillLevelDisplay(wasteBin.fillLevel)}
+              ID: {wasteBin.id} • Status: {getStatusDisplay(wasteBin.status)} • Typ: {getTypeDisplay(wasteBin.type)}
             </p>
           </div>
         </div>
