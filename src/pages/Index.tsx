@@ -36,6 +36,12 @@ const Index = () => {
   const [currentReportId, setCurrentReportId] = useState<string | null>(null);
   const [showNotificationDialog, setShowNotificationDialog] = useState(false);
   const [canSubmitReport, setCanSubmitReport] = useState(false);
+  
+  // Map specific state
+  const [mapAddress, setMapAddress] = useState('');
+  const [selectedWasteBasket, setSelectedWasteBasket] = useState('');
+  const mapIframeRef = useRef<HTMLIFrameElement>(null);
+  
   const inputRef = useRef(null);
   const { toast } = useToast();
   const { user, logout, isLoggedIn } = useAuth();
@@ -50,6 +56,68 @@ const Index = () => {
     { value: 'erlangen', label: 'Erlangen' },
     { value: 'fuerth', label: 'Fürth' }
   ];
+
+  // Setup iframe communication for map interaction
+  useEffect(() => {
+    const handleMapMessage = (event: MessageEvent) => {
+      // Only accept messages from the trusted map origin
+      if (event.origin !== 'https://routenplanung.vercel.app') return;
+      
+      console.log('Received map message:', event.data);
+      
+      if (event.data.type === 'wasteBasketSelected') {
+        console.log('Waste basket selected:', event.data.id);
+        setSelectedWasteBasket(event.data.id);
+        toast({
+          title: "Mülleimer ausgewählt",
+          description: `WasteBasket ID: ${event.data.id}`,
+        });
+      }
+    };
+
+    window.addEventListener('message', handleMapMessage);
+    return () => window.removeEventListener('message', handleMapMessage);
+  }, [toast]);
+
+  // Send address to map for navigation
+  const sendAddressToMap = (address: string) => {
+    if (mapIframeRef.current && address.trim()) {
+      console.log('Sending address to map:', address);
+      mapIframeRef.current.contentWindow?.postMessage({
+        type: 'navigateToAddress',
+        address: address
+      }, 'https://routenplanung.vercel.app');
+    }
+  };
+
+  // Handle address input and navigation
+  const handleAddressSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (mapAddress.trim()) {
+      sendAddressToMap(mapAddress);
+      toast({
+        title: "Navigation gestartet",
+        description: `Navigiere zu: ${mapAddress}`,
+      });
+    }
+  };
+
+  // Handle "Mülleimer melden" button click
+  const handleReportWasteBasket = () => {
+    if (selectedWasteBasket) {
+      // Pre-fill the form with the selected waste basket
+      setFormData(prev => ({ 
+        ...prev, 
+        wasteBinId: selectedWasteBasket,
+        location: `Standort Mülleimer ${selectedWasteBasket}`
+      }));
+      setCurrentView('report');
+      toast({
+        title: "Formular vorbereitet",
+        description: `Mülleimer ${selectedWasteBasket} für Meldung ausgewählt`,
+      });
+    }
+  };
 
   // Check if report can be submitted based on partner municipality
   useEffect(() => {
@@ -911,6 +979,97 @@ const Index = () => {
     </div>
   );
 
+  // Updated Karte view with interactive features
+  const renderKarte = () => (
+    <div className="min-h-screen bg-gray-50">
+      {renderHeader()}
+      
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <h1 className="text-2xl font-bold mb-6 text-center text-green-800">
+          🗺️ Interaktive Mülleimer-Karte Nürnberg
+        </h1>
+        
+        <div className="bg-white rounded-lg shadow-lg p-6 space-y-6">
+          {/* Address Search Field */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              📍 Adresse eingeben
+            </label>
+            <form onSubmit={handleAddressSubmit} className="flex gap-2">
+              <Input
+                type="text"
+                value={mapAddress}
+                onChange={(e) => setMapAddress(e.target.value)}
+                placeholder="Adresse eingeben..."
+                className="flex-1"
+              />
+              <Button type="submit" disabled={!mapAddress.trim()}>
+                <MapPin className="w-4 h-4 mr-2" />
+                Navigieren
+              </Button>
+            </form>
+          </div>
+
+          {/* Interactive Map */}
+          <div className="relative">
+            <iframe 
+              ref={mapIframeRef}
+              id="map-iframe"
+              src="https://routenplanung.vercel.app/nbg_wastebaskets_map.html"
+              className="w-full h-96 md:h-[500px] border rounded-lg shadow-sm"
+              title="Interaktive Mülleimer Karte"
+              style={{ minHeight: '400px' }}
+            />
+          </div>
+
+          {/* Selected WasteBasket ID Display */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              🗑️ Ausgewählter Mülleimer
+            </label>
+            <Input
+              type="text"
+              value={selectedWasteBasket || 'Keine Auswahl'}
+              readOnly
+              disabled
+              className={`font-medium ${
+                selectedWasteBasket 
+                  ? 'bg-green-50 border-green-200 text-green-800' 
+                  : 'bg-gray-100 text-gray-500'
+              }`}
+            />
+          </div>
+
+          {/* Action Button */}
+          <div className="flex justify-center">
+            <Button
+              onClick={handleReportWasteBasket}
+              disabled={!selectedWasteBasket}
+              className={`px-8 py-3 text-lg font-semibold ${
+                selectedWasteBasket
+                  ? 'bg-green-500 hover:bg-green-600 text-white'
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
+            >
+              {selectedWasteBasket ? 'Mülleimer melden' : 'Zuerst Mülleimer auswählen'}
+            </Button>
+          </div>
+
+          {/* Instructions */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h3 className="font-semibold text-blue-800 mb-2">💡 So funktioniert's:</h3>
+            <ol className="text-sm text-blue-700 space-y-1 list-decimal list-inside">
+              <li>Geben Sie eine Adresse ein und klicken Sie "Navigieren" um zur gewünschten Stelle zu gelangen</li>
+              <li>Klicken Sie auf einen Mülleimer-Marker in der Karte</li>
+              <li>Die WasteBasket ID wird automatisch angezeigt</li>
+              <li>Klicken Sie "Mülleimer melden" um das Meldeformular zu öffnen</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   const renderConfirmation = () => (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50">
       {renderHeader()}
@@ -1434,23 +1593,6 @@ const Index = () => {
             </section>
           </CardContent>
         </Card>
-      </div>
-    </div>
-  );
-
-  const renderKarte = () => (
-    <div className="min-h-screen bg-gray-50">
-      {renderHeader()}
-      
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold mb-4 text-center text-green-800">Mülleimer-Karte Nürnberg</h1>
-        <div className="bg-white rounded-lg shadow-lg p-4">
-          <iframe 
-            src="https://routenplanung.vercel.app/nbg_wastebaskets_map.html"
-            className="w-full h-96 md:h-[600px] border rounded-lg"
-            title="Mülleimer Karte"
-          />
-        </div>
       </div>
     </div>
   );
