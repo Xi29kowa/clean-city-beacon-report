@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { MapPin, Navigation, X } from 'lucide-react';
+import { MapPin, Navigation, X, Clock } from 'lucide-react';
 import { AddressSuggestion } from '@/types/location';
 import { partnerMunicipalities } from '@/data/municipalities';
 
@@ -18,19 +18,39 @@ const AddressInput: React.FC<AddressInputProps> = ({
   onPartnerMunicipalityChange,
   onLocationSelect
 }) => {
-  const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
+  const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceTimeoutRef = useRef<NodeJS.Timeout>();
   const suggestionsRef = useRef<HTMLDivElement>(null);
 
-  // Enhanced search with immediate response
+  // Load recent searches from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('recent-addresses');
+    if (saved) {
+      try {
+        setRecentSearches(JSON.parse(saved));
+      } catch (error) {
+        console.error('Error loading recent searches:', error);
+      }
+    }
+  }, []);
+
+  // Save to recent searches
+  const saveToRecentSearches = (address: string) => {
+    const updated = [address, ...recentSearches.filter(item => item !== address)].slice(0, 5);
+    setRecentSearches(updated);
+    localStorage.setItem('recent-addresses', JSON.stringify(updated));
+  };
+
+  // Google Maps-style address search
   const searchAddresses = useCallback(async (searchTerm: string) => {
     if (searchTerm.length < 2) {
-      setAddressSuggestions([]);
+      setSuggestions([]);
       setShowSuggestions(false);
       return;
     }
@@ -39,39 +59,39 @@ const AddressInput: React.FC<AddressInputProps> = ({
     setShowSuggestions(true);
 
     try {
-      // Optimize search for better house number detection
       const query = encodeURIComponent(searchTerm);
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=8&q=${query}&countrycodes=de&dedupe=1&extratags=1&bounded=0`
+        `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=6&q=${query}&countrycodes=de&dedupe=1&extratags=1`
       );
       
       if (response.ok) {
         const data: AddressSuggestion[] = await response.json();
         
-        // Enhanced filtering and formatting
-        const filteredSuggestions = data
+        // Format suggestions Google Maps style
+        const formattedSuggestions = data
           .filter(suggestion => 
             suggestion.address && 
             suggestion.address.country_code === 'de' &&
-            (suggestion.importance || 0) > 0.2
+            (suggestion.importance || 0) > 0.1
           )
           .map(suggestion => {
             const addr = suggestion.address!;
             
-            // Build primary address line
+            // Primary line: Street + House Number
             const primaryParts = [];
             if (addr.road) primaryParts.push(addr.road);
             if (addr.house_number) primaryParts.push(addr.house_number);
             
-            // Build secondary address line
+            // Secondary line: Postal Code + City
             const secondaryParts = [];
             if (addr.postcode) secondaryParts.push(addr.postcode);
             if (addr.city || addr.town || addr.village) {
               secondaryParts.push(addr.city || addr.town || addr.village);
             }
+            if (addr.state) secondaryParts.push(addr.state);
             
             const primaryAddress = primaryParts.join(' ');
-            const secondaryAddress = secondaryParts.join(' ');
+            const secondaryAddress = secondaryParts.join(', ');
             
             return {
               ...suggestion,
@@ -82,31 +102,31 @@ const AddressInput: React.FC<AddressInputProps> = ({
           })
           .sort((a, b) => {
             // Prioritize exact matches and house numbers
-            const aHasHouseNumber = a.address?.house_number ? 2 : 0;
-            const bHasHouseNumber = b.address?.house_number ? 2 : 0;
+            const aHasHouseNumber = a.address?.house_number ? 3 : 0;
+            const bHasHouseNumber = b.address?.house_number ? 3 : 0;
             
-            const aExactMatch = a.formatted_address?.toLowerCase().includes(searchTerm.toLowerCase()) ? 1 : 0;
-            const bExactMatch = b.formatted_address?.toLowerCase().includes(searchTerm.toLowerCase()) ? 1 : 0;
+            const aExactMatch = a.formatted_address?.toLowerCase().includes(searchTerm.toLowerCase()) ? 2 : 0;
+            const bExactMatch = b.formatted_address?.toLowerCase().includes(searchTerm.toLowerCase()) ? 2 : 0;
             
             const aScore = aHasHouseNumber + aExactMatch + (a.importance || 0);
             const bScore = bHasHouseNumber + bExactMatch + (b.importance || 0);
             
             return bScore - aScore;
           })
-          .slice(0, 6);
+          .slice(0, 5);
         
-        setAddressSuggestions(filteredSuggestions);
+        setSuggestions(formattedSuggestions);
         setSelectedIndex(-1);
       }
     } catch (error) {
       console.error('Address search error:', error);
-      setAddressSuggestions([]);
+      setSuggestions([]);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  // Debounced search with faster response
+  // Debounced search (Google Maps style - 300ms delay)
   const debouncedSearch = useCallback((searchTerm: string) => {
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
@@ -114,40 +134,64 @@ const AddressInput: React.FC<AddressInputProps> = ({
 
     debounceTimeoutRef.current = setTimeout(() => {
       searchAddresses(searchTerm);
-    }, 150); // Faster debounce for better UX
+    }, 300);
   }, [searchAddresses]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     onChange(newValue);
-    debouncedSearch(newValue);
+    
+    if (newValue.trim()) {
+      debouncedSearch(newValue);
+    } else {
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
+  };
+
+  const handleInputFocus = () => {
+    if (value.trim() && suggestions.length > 0) {
+      setShowSuggestions(true);
+    } else if (!value.trim() && recentSearches.length > 0) {
+      setShowSuggestions(true);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!showSuggestions || addressSuggestions.length === 0) return;
+    const totalItems = suggestions.length + (recentSearches.length > 0 && !value.trim() ? recentSearches.length : 0);
+    
+    if (!showSuggestions || totalItems === 0) return;
 
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
-        setSelectedIndex(prev => 
-          prev < addressSuggestions.length - 1 ? prev + 1 : 0
-        );
+        setSelectedIndex(prev => prev < totalItems - 1 ? prev + 1 : 0);
         break;
       case 'ArrowUp':
         e.preventDefault();
-        setSelectedIndex(prev => 
-          prev > 0 ? prev - 1 : addressSuggestions.length - 1
-        );
+        setSelectedIndex(prev => prev > 0 ? prev - 1 : totalItems - 1);
         break;
       case 'Enter':
         e.preventDefault();
-        if (selectedIndex >= 0 && selectedIndex < addressSuggestions.length) {
-          handleSuggestionClick(addressSuggestions[selectedIndex]);
+        if (selectedIndex >= 0) {
+          const isRecentSearch = !value.trim() && selectedIndex < recentSearches.length;
+          if (isRecentSearch) {
+            const recentAddress = recentSearches[selectedIndex];
+            onChange(recentAddress);
+            setShowSuggestions(false);
+            debouncedSearch(recentAddress);
+          } else {
+            const suggestionIndex = value.trim() ? selectedIndex : selectedIndex - recentSearches.length;
+            if (suggestionIndex >= 0 && suggestionIndex < suggestions.length) {
+              handleSuggestionClick(suggestions[suggestionIndex]);
+            }
+          }
         }
         break;
       case 'Escape':
         setShowSuggestions(false);
         setSelectedIndex(-1);
+        inputRef.current?.blur();
         break;
     }
   };
@@ -166,9 +210,11 @@ const AddressInput: React.FC<AddressInputProps> = ({
       lng: parseFloat(suggestion.lon)
     };
 
-    // Use the formatted address for better display
     const displayAddress = suggestion.formatted_address || suggestion.display_name;
     onChange(displayAddress, coordinates);
+    
+    // Save to recent searches
+    saveToRecentSearches(displayAddress);
     
     if (onLocationSelect) {
       onLocationSelect(coordinates);
@@ -178,10 +224,19 @@ const AddressInput: React.FC<AddressInputProps> = ({
     onPartnerMunicipalityChange(municipality);
     
     setShowSuggestions(false);
-    setAddressSuggestions([]);
+    setSuggestions([]);
     setSelectedIndex(-1);
   };
 
+  const handleRecentSearchClick = (recentAddress: string) => {
+    onChange(recentAddress);
+    setShowSuggestions(false);
+    setSelectedIndex(-1);
+    // Trigger search for this address
+    setTimeout(() => debouncedSearch(recentAddress), 100);
+  };
+
+  // ... keep existing code (getCurrentLocation function)
   const getCurrentLocation = () => {
     console.log('GPS button clicked');
     
@@ -226,6 +281,7 @@ const AddressInput: React.FC<AddressInputProps> = ({
             const coordinates = { lat: latitude, lng: longitude };
             
             onChange(formattedAddress, coordinates);
+            saveToRecentSearches(formattedAddress);
             
             if (onLocationSelect) {
               onLocationSelect(coordinates);
@@ -282,7 +338,7 @@ const AddressInput: React.FC<AddressInputProps> = ({
   const clearInput = () => {
     onChange('');
     onPartnerMunicipalityChange(null);
-    setAddressSuggestions([]);
+    setSuggestions([]);
     setShowSuggestions(false);
     setSelectedIndex(-1);
     inputRef.current?.focus();
@@ -311,6 +367,9 @@ const AddressInput: React.FC<AddressInputProps> = ({
     };
   }, []);
 
+  const showRecentSearches = !value.trim() && recentSearches.length > 0;
+  const totalItems = suggestions.length + (showRecentSearches ? recentSearches.length : 0);
+
   return (
     <div className="relative">
       <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -321,15 +380,11 @@ const AddressInput: React.FC<AddressInputProps> = ({
         <Input
           ref={inputRef}
           type="text"
-          placeholder="Straße, Hausnummer, PLZ, Stadt eingeben... (z.B. Lange Gasse 20, Nürnberg)"
+          placeholder="Adresse eingeben... (z.B. Lange Gasse 20, Nürnberg)"
           value={value}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
-          onFocus={() => {
-            if (addressSuggestions.length > 0) {
-              setShowSuggestions(true);
-            }
-          }}
+          onFocus={handleInputFocus}
           className="pr-20"
           autoComplete="off"
         />
@@ -361,15 +416,7 @@ const AddressInput: React.FC<AddressInputProps> = ({
         </div>
       </div>
 
-      {isGettingLocation && (
-        <div className="absolute top-full left-0 right-0 bg-blue-50 border border-blue-200 rounded-md shadow-lg mt-1 p-3 z-50">
-          <div className="flex items-center space-x-2">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-            <span className="text-sm text-blue-600">Standort wird ermittelt...</span>
-          </div>
-        </div>
-      )}
-
+      {/* Loading indicator */}
       {isLoading && (
         <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg mt-1 p-3 z-50">
           <div className="flex items-center space-x-2">
@@ -379,39 +426,91 @@ const AddressInput: React.FC<AddressInputProps> = ({
         </div>
       )}
 
-      {showSuggestions && addressSuggestions.length > 0 && (
+      {/* GPS Loading indicator */}
+      {isGettingLocation && (
+        <div className="absolute top-full left-0 right-0 bg-blue-50 border border-blue-200 rounded-md shadow-lg mt-1 p-3 z-50">
+          <div className="flex items-center space-x-2">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+            <span className="text-sm text-blue-600">Standort wird ermittelt...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Google Maps style suggestions dropdown */}
+      {showSuggestions && (showRecentSearches || suggestions.length > 0) && (
         <div 
           ref={suggestionsRef}
           className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg mt-1 max-h-80 overflow-y-auto z-50"
         >
-          {addressSuggestions.map((suggestion, index) => (
-            <button
-              key={index}
-              type="button"
-              onClick={() => handleSuggestionClick(suggestion)}
-              className={`w-full text-left px-4 py-3 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none border-b border-gray-100 last:border-b-0 transition-colors ${
-                index === selectedIndex ? 'bg-blue-50 border-blue-200' : ''
-              }`}
-            >
-              <div className="flex items-start space-x-3">
-                <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="font-medium text-gray-900 truncate">
-                    {suggestion.formatted_address}
-                  </div>
-                  <div className="text-sm text-gray-500 truncate">
-                    {suggestion.short_name}
-                  </div>
-                  {suggestion.address?.house_number && (
-                    <div className="text-xs text-green-600 mt-1 flex items-center">
-                      <span className="w-1 h-1 bg-green-500 rounded-full mr-1"></span>
-                      Hausnummer verfügbar
-                    </div>
-                  )}
-                </div>
+          {/* Recent searches */}
+          {showRecentSearches && (
+            <>
+              <div className="px-4 py-2 bg-gray-50 border-b text-xs font-medium text-gray-500 uppercase tracking-wide">
+                Letzte Suchen
               </div>
-            </button>
-          ))}
+              {recentSearches.map((recentAddress, index) => (
+                <button
+                  key={`recent-${index}`}
+                  type="button"
+                  onClick={() => handleRecentSearchClick(recentAddress)}
+                  className={`w-full text-left px-4 py-3 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none border-b border-gray-100 transition-colors ${
+                    index === selectedIndex ? 'bg-blue-50 border-blue-200' : ''
+                  }`}
+                >
+                  <div className="flex items-center space-x-3">
+                    <Clock className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-gray-900 truncate">
+                        {recentAddress}
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </>
+          )}
+
+          {/* Address suggestions */}
+          {suggestions.length > 0 && (
+            <>
+              {showRecentSearches && (
+                <div className="px-4 py-2 bg-gray-50 border-b text-xs font-medium text-gray-500 uppercase tracking-wide">
+                  Vorschläge
+                </div>
+              )}
+              {suggestions.map((suggestion, index) => {
+                const adjustedIndex = showRecentSearches ? index + recentSearches.length : index;
+                return (
+                  <button
+                    key={`suggestion-${index}`}
+                    type="button"
+                    onClick={() => handleSuggestionClick(suggestion)}
+                    className={`w-full text-left px-4 py-3 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none border-b border-gray-100 last:border-b-0 transition-colors ${
+                      adjustedIndex === selectedIndex ? 'bg-blue-50 border-blue-200' : ''
+                    }`}
+                  >
+                    <div className="flex items-start space-x-3">
+                      <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-gray-900 truncate">
+                          {suggestion.formatted_address}
+                        </div>
+                        <div className="text-sm text-gray-500 truncate">
+                          {suggestion.short_name}
+                        </div>
+                        {suggestion.address?.house_number && (
+                          <div className="text-xs text-green-600 mt-1 flex items-center">
+                            <span className="w-1 h-1 bg-green-500 rounded-full mr-1"></span>
+                            Hausnummer verfügbar
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </>
+          )}
         </div>
       )}
     </div>
