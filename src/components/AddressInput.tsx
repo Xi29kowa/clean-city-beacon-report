@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -26,7 +27,7 @@ const AddressInput: React.FC<AddressInputProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceTimeoutRef = useRef<NodeJS.Timeout>();
 
-  // Optimized debounced search with better performance
+  // Enhanced address search with better house number handling
   const debouncedSearch = useCallback((searchTerm: string) => {
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
@@ -36,37 +37,62 @@ const AddressInput: React.FC<AddressInputProps> = ({
       if (searchTerm.length > 2) {
         setIsLoading(true);
         try {
+          // Enhanced search query for better accuracy
+          const searchQuery = encodeURIComponent(searchTerm);
           const response = await fetch(
-            `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=8&q=${encodeURIComponent(searchTerm)}, Germany`
+            `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=10&q=${searchQuery}&countrycodes=de&dedupe=1&extratags=1`
           );
           
           if (response.ok) {
             const data: AddressSuggestion[] = await response.json();
             
-            // Improved filtering and formatting
+            // Enhanced filtering and formatting for better address display
             const filteredSuggestions = data
               .filter(suggestion => 
                 suggestion.address && 
-                suggestion.address.country_code === 'de'
+                suggestion.address.country_code === 'de' &&
+                suggestion.importance > 0.3 // Filter for more relevant results
               )
               .map(suggestion => {
                 const addr = suggestion.address!;
                 const parts = [];
+                const shortParts = [];
                 
-                if (addr.road) parts.push(addr.road);
-                if (addr.house_number) parts.push(addr.house_number);
+                // Build detailed address
+                if (addr.road) {
+                  parts.push(addr.road);
+                  shortParts.push(addr.road);
+                }
+                if (addr.house_number) {
+                  parts.push(addr.house_number);
+                  shortParts.push(addr.house_number);
+                }
                 if (addr.postcode) parts.push(addr.postcode);
                 if (addr.city || addr.town || addr.village) {
-                  parts.push(addr.city || addr.town || addr.village);
+                  const city = addr.city || addr.town || addr.village;
+                  parts.push(city);
+                  if (shortParts.length < 2) shortParts.push(city);
                 }
+                if (addr.state) parts.push(addr.state);
                 
                 return {
                   ...suggestion,
                   display_name: parts.join(', '),
-                  short_name: parts.slice(0, 2).join(' ')
+                  short_name: shortParts.join(' '),
+                  formatted_address: `${addr.road || ''} ${addr.house_number || ''}`.trim() || parts.slice(0, 2).join(' ')
                 };
               })
-              .slice(0, 6); // Limit to 6 suggestions for better performance
+              .sort((a, b) => {
+                // Prioritize results with house numbers
+                const aHasHouseNumber = a.address?.house_number ? 1 : 0;
+                const bHasHouseNumber = b.address?.house_number ? 1 : 0;
+                if (aHasHouseNumber !== bHasHouseNumber) {
+                  return bHasHouseNumber - aHasHouseNumber;
+                }
+                // Then sort by importance
+                return (b.importance || 0) - (a.importance || 0);
+              })
+              .slice(0, 8); // Limit to 8 suggestions
             
             setAddressSuggestions(filteredSuggestions);
             setShowSuggestions(true);
@@ -81,7 +107,7 @@ const AddressInput: React.FC<AddressInputProps> = ({
         setShowSuggestions(false);
         setIsLoading(false);
       }
-    }, 300); // Reduced debounce time for better responsiveness
+    }, 200); // Faster response time
   }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -244,7 +270,7 @@ const AddressInput: React.FC<AddressInputProps> = ({
         <Input
           ref={inputRef}
           type="text"
-          placeholder="Straße, Hausnummer, PLZ, Stadt eingeben..."
+          placeholder="Straße, Hausnummer, PLZ, Stadt eingeben... (z.B. Lange Gasse 20, Nürnberg)"
           value={value}
           onChange={handleInputChange}
           className="pr-20"
@@ -290,13 +316,13 @@ const AddressInput: React.FC<AddressInputProps> = ({
         <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg mt-1 p-3 z-50">
           <div className="flex items-center space-x-2">
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-            <span className="text-sm text-gray-600">Suche...</span>
+            <span className="text-sm text-gray-600">Suche nach Adressen...</span>
           </div>
         </div>
       )}
 
       {showSuggestions && addressSuggestions.length > 0 && (
-        <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg mt-1 max-h-64 overflow-y-auto z-50">
+        <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg mt-1 max-h-80 overflow-y-auto z-50">
           {addressSuggestions.map((suggestion, index) => (
             <button
               key={index}
@@ -308,11 +334,16 @@ const AddressInput: React.FC<AddressInputProps> = ({
                 <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-gray-900 truncate">
-                    {suggestion.short_name}
+                    {suggestion.formatted_address}
                   </div>
                   <div className="text-sm text-gray-500 truncate">
                     {suggestion.display_name}
                   </div>
+                  {suggestion.address?.house_number && (
+                    <div className="text-xs text-green-600 mt-1">
+                      ✓ Hausnummer verfügbar
+                    </div>
+                  )}
                 </div>
               </div>
             </button>
@@ -324,3 +355,4 @@ const AddressInput: React.FC<AddressInputProps> = ({
 };
 
 export default AddressInput;
+
