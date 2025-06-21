@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { User, Mail, Lock, MapPin, Phone, FileText, Calendar, Clock, Trash2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -226,8 +227,7 @@ const UserAccount = () => {
       const { error } = await supabase
         .from('bin_reports')
         .delete()
-        .eq('id', reportId)
-        .eq('user_id', user?.id);
+        .eq('id', reportId);
 
       if (error) {
         console.error('Error deleting report:', error);
@@ -499,12 +499,12 @@ const UserAccount = () => {
                           <p className="font-medium">Problem:</p>
                           <p className="text-gray-600">{report.issue_type}</p>
                         </div>
-                        {report.waste_bin_id && (
-                          <div>
-                            <p className="font-medium">Mülleimer ID:</p>
-                            <p className="text-gray-600 font-mono bg-gray-100 px-2 py-1 rounded">{report.waste_bin_id}</p>
-                          </div>
-                        )}
+                        <div>
+                          <p className="font-medium">Mülleimer ID:</p>
+                          <p className="text-gray-600 font-mono bg-gray-100 px-2 py-1 rounded">
+                            {report.waste_bin_id || 'Nicht verfügbar'}
+                          </p>
+                        </div>
                         {report.partner_municipality && (
                           <div>
                             <p className="font-medium">Gemeinde:</p>
