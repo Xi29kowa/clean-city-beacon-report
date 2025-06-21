@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, useState } from 'react';
 import { MapPin, Trash2, Loader2 } from 'lucide-react';
 import { WasteBin } from '@/types/location';
@@ -17,21 +18,21 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
 
   useEffect(() => {
     const handleMapMessage = (event: MessageEvent) => {
-      console.log('🎯 Received message from:', event.origin);
-      console.log('📨 Message data:', event.data);
-      console.log('📨 Message type:', typeof event.data);
-      console.log('📨 Message keys:', Object.keys(event.data || {}));
+      console.log('🎯 RECEIVED MESSAGE:');
+      console.log('   - Origin:', event.origin);
+      console.log('   - Data type:', typeof event.data);
+      console.log('   - Data:', event.data);
       
-      // Accept messages from ANY origin for now to debug
-      // We'll be more restrictive later once we know it works
-      console.log('✅ Message accepted from origin:', event.origin);
+      // Allow ALL origins temporarily for debugging
+      console.log('✅ PROCESSING MESSAGE (all origins allowed)');
       
+      // Handle map ready
       if (event.data && event.data.type === 'mapReady') {
-        console.log('✅ Map is ready!');
+        console.log('✅ MAP READY MESSAGE RECEIVED');
         setIsMapReady(true);
         setIsMapLoading(false);
         
-        // Send any pending navigation
+        // Send pending navigation
         if (pendingNavigationRef.current && mapIframeRef.current) {
           console.log('🧭 Sending pending navigation:', pendingNavigationRef.current);
           const navigationMessage = {
@@ -42,49 +43,92 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
           mapIframeRef.current.contentWindow?.postMessage(navigationMessage, '*');
           pendingNavigationRef.current = null;
         }
+        return;
       }
       
-      // Handle different possible message formats for waste bin clicks
-      if (event.data && (
-        event.data.type === 'wasteBinClick' || 
-        event.data.type === 'wasteBasketClick' || 
-        event.data.type === 'binClick' ||
-        event.data.type === 'click' ||
-        event.data.type === 'markerClick'
-      )) {
-        const binId = event.data.binId || 
-                     event.data.wasteBasketId || 
-                     event.data.id || 
-                     event.data.markerId ||
-                     event.data.wasteBinId;
+      // Handle ALL possible waste bin click formats
+      let binId = null;
+      let foundFormat = '';
+      
+      if (event.data && typeof event.data === 'object') {
+        // Check all possible property names for the bin ID
+        const possibleProperties = [
+          'wasteBasketId',
+          'wasteBinId', 
+          'binId',
+          'id',
+          'markerId',
+          'basket_id',
+          'bin_id',
+          'WasteBasketId',
+          'WasteBinId'
+        ];
         
-        console.log('🗑️ Waste bin clicked in InteractiveMap, ID:', binId);
-        console.log('🗑️ Full event data:', event.data);
-        
-        if (!binId) {
-          console.log('❌ No bin ID found in message data:', event.data);
-          return;
+        for (const prop of possibleProperties) {
+          if (event.data[prop] !== undefined && event.data[prop] !== null) {
+            binId = event.data[prop];
+            foundFormat = prop;
+            break;
+          }
         }
         
-        // IMPORTANT: Call the callback to inform parent component
+        // Also check nested data objects
+        if (!binId && event.data.data && typeof event.data.data === 'object') {
+          for (const prop of possibleProperties) {
+            if (event.data.data[prop] !== undefined && event.data.data[prop] !== null) {
+              binId = event.data.data[prop];
+              foundFormat = `data.${prop}`;
+              break;
+            }
+          }
+        }
+      }
+      
+      // Try to parse string messages
+      if (!binId && typeof event.data === 'string') {
+        try {
+          const parsed = JSON.parse(event.data);
+          console.log('📝 Parsed string message:', parsed);
+          
+          const possibleProperties = ['wasteBasketId', 'wasteBinId', 'binId', 'id', 'markerId'];
+          for (const prop of possibleProperties) {
+            if (parsed[prop] !== undefined && parsed[prop] !== null) {
+              binId = parsed[prop];
+              foundFormat = `string.${prop}`;
+              break;
+            }
+          }
+        } catch (e) {
+          console.log('❌ Could not parse string message');
+        }
+      }
+      
+      // If we found a bin ID, process it
+      if (binId !== null && binId !== undefined) {
+        const binIdString = String(binId);
+        console.log('🗑️ WASTE BIN CLICK DETECTED:');
+        console.log('   - Bin ID:', binIdString);
+        console.log('   - Found in format:', foundFormat);
+        console.log('   - Message type:', event.data?.type || 'unknown');
+        
+        // CRITICAL: Call the callback to update the parent component
         if (onWasteBinSelect) {
-          console.log('📤 Calling onWasteBinSelect with binId:', binId);
-          onWasteBinSelect(String(binId));
+          console.log('📤 CALLING onWasteBinSelect with:', binIdString);
+          onWasteBinSelect(binIdString);
         } else {
-          console.log('❌ onWasteBinSelect callback not available');
+          console.log('❌ onWasteBinSelect callback not available!');
         }
         
-        // Find the waste bin data for display
-        const bin = wasteBins.find(b => b.id === String(binId));
+        // Find and display bin data
+        const bin = wasteBins.find(b => b.id === binIdString);
         if (bin) {
           console.log('✅ Found bin data:', bin);
           setSelectedBin(bin);
         } else {
-          console.log('⚠️ Bin not found in data, creating mock data for:', binId);
-          // Create mock data for bins not in our dataset
+          console.log('⚠️ Creating mock data for bin:', binIdString);
           const mockBin: WasteBin = {
-            id: String(binId),
-            location: `Standort ${binId}`,
+            id: binIdString,
+            location: `Standort ${binIdString}`,
             coordinates: { lat: 49.4521, lng: 11.0767 },
             status: 'empty',
             lastEmptied: new Date().toISOString(),
@@ -92,41 +136,16 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
           };
           setSelectedBin(mockBin);
         }
-      }
-      
-      // Handle any message that might contain waste bin info (catch-all)
-      if (event.data && typeof event.data === 'object') {
-        const possibleBinId = event.data.wasteBasketId || 
-                             event.data.binId || 
-                             event.data.id ||
-                             event.data.markerId ||
-                             event.data.wasteBinId;
-                             
-        if (possibleBinId && onWasteBinSelect) {
-          console.log('🔍 Found potential bin ID in catch-all:', possibleBinId, 'Type:', event.data.type);
-          console.log('📤 Calling onWasteBinSelect with found binId:', possibleBinId);
-          onWasteBinSelect(String(possibleBinId));
-        }
-      }
-
-      // Also try to parse string messages that might be JSON
-      if (typeof event.data === 'string') {
-        try {
-          const parsed = JSON.parse(event.data);
-          console.log('📝 Parsed string message:', parsed);
-          
-          const binId = parsed.wasteBasketId || parsed.binId || parsed.id;
-          if (binId && onWasteBinSelect) {
-            console.log('📤 Calling onWasteBinSelect from parsed string:', binId);
-            onWasteBinSelect(String(binId));
-          }
-        } catch (e) {
-          console.log('❌ Could not parse string message:', event.data);
+      } else {
+        // Log when no bin ID is found for debugging
+        console.log('❌ No bin ID found in message');
+        if (event.data && typeof event.data === 'object') {
+          console.log('Available properties:', Object.keys(event.data));
         }
       }
     };
 
-    // Add comprehensive message listener
+    // Add message listener
     window.addEventListener('message', handleMapMessage);
     console.log('👂 Message listener added for ALL origins');
     
@@ -139,7 +158,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
   // Handle iframe load
   const handleIframeLoad = () => {
     console.log('🌐 Iframe loaded');
-    // Give the iframe a moment to initialize
+    // Give iframe time to initialize, then assume ready
     setTimeout(() => {
       if (!isMapReady) {
         console.log('⏰ Map ready timeout, assuming ready');
@@ -149,31 +168,29 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
     }, 2000);
   };
 
-  // Send navigation command to map when center changes
+  // Send navigation to map when center changes
   useEffect(() => {
     if (center) {
       console.log('🧭 Navigation requested to:', center);
       
       if (mapIframeRef.current && isMapReady) {
-        console.log('📍 Navigating map to coordinates immediately:', center);
+        console.log('📍 Navigating map immediately');
         const navigationMessage = {
           type: 'navigateToLocation',
           coordinates: center,
           zoom: 17
         };
-        
-        // Send message to iframe
         mapIframeRef.current.contentWindow?.postMessage(navigationMessage, '*');
       } else {
-        console.log('⏳ Map not ready, storing pending navigation:', center);
+        console.log('⏳ Map not ready, storing pending navigation');
         pendingNavigationRef.current = center;
         
-        // Try multiple times with increasing delays
+        // Multiple retry attempts
         const attempts = [500, 1000, 2000, 3000];
         attempts.forEach((delay, index) => {
           setTimeout(() => {
             if (mapIframeRef.current && pendingNavigationRef.current) {
-              console.log(`🔄 Retry ${index + 1}: Attempting navigation to:`, pendingNavigationRef.current);
+              console.log(`🔄 Retry ${index + 1}: Navigation attempt`);
               const navigationMessage = {
                 type: 'navigateToLocation',
                 coordinates: pendingNavigationRef.current,
@@ -181,7 +198,6 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
               };
               mapIframeRef.current.contentWindow?.postMessage(navigationMessage, '*');
               
-              // Clear pending navigation after successful attempt
               if (index === attempts.length - 1) {
                 pendingNavigationRef.current = null;
               }
@@ -192,6 +208,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
     }
   }, [center, isMapReady]);
 
+  // Helper functions for display
   const getStatusDisplay = (status: string) => {
     switch (status) {
       case 'full': return '🔴 Voll';
@@ -211,14 +228,13 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
     }
   };
 
-  // Calculate fill level percentage based on status
   const getFillLevel = (status: string): number => {
     switch (status) {
       case 'empty': return 10;
       case 'full': return 85;
       case 'overflowing': return 100;
       case 'damaged': return 0;
-      default: return Math.floor(Math.random() * 80) + 10; // Random between 10-90%
+      default: return Math.floor(Math.random() * 80) + 10;
     }
   };
 
@@ -257,7 +273,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
           )}
         </div>
         
-        {/* Selected Waste Bin Display with Enhanced Information */}
+        {/* Selected Waste Bin Display */}
         {selectedBin && (
           <div className="p-4 bg-blue-50 border-t border-blue-200">
             <div className="flex items-start gap-3">
@@ -298,12 +314,12 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
         <div className="p-3 bg-gray-50 rounded-b-lg">
           <p className="text-xs text-gray-600 flex items-center gap-2">
             <MapPin className="w-3 h-3" />
-            💡 Klicken Sie auf einen Mülleimer-Marker um die ID automatisch zu übernehmen und Details anzuzeigen.
+            💡 Klicken Sie auf einen Mülleimer-Marker um die ID automatisch zu übernehmen.
             {isMapLoading && <span className="text-orange-600">(Lädt...)</span>}
             {!isMapLoading && isMapReady && <span className="text-green-600">(Bereit)</span>}
           </p>
           <p className="text-xs text-gray-500 mt-1">
-            🔍 Debug: Schauen Sie in die Browser-Konsole für Message-Logs (alle Origins erlaubt)
+            🔍 Debug: Alle Message-Formate werden verarbeitet, schauen Sie in die Konsole für Details
           </p>
         </div>
       </div>
