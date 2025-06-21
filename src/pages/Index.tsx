@@ -1024,20 +1024,16 @@ const Index = () => {
             />
           </div>
 
-          {/* NEW: WasteBasket ID Field */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              🗑️ Ausgewählter Mülleimer
+          {/* NEW: Simple text field below map */}
+          <div className="mt-4">
+            <label className="block text-sm font-medium mb-2">
+              Ausgewählter Mülleimer:
             </label>
-            <Input
+            <input 
               type="text"
-              value={selectedWasteBasketId || 'Kein Mülleimer ausgewählt'}
+              placeholder="Kein Mülleimer ausgewählt"
               readOnly
-              className={`font-medium ${
-                selectedWasteBasketId 
-                  ? 'bg-green-50 border-green-200 text-green-800' 
-                  : 'bg-gray-100 text-gray-500'
-              }`}
+              className="w-full p-2 border rounded bg-gray-100"
             />
           </div>
 
