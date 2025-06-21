@@ -73,6 +73,14 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
     }
   };
 
+  const handleWasteBinIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    // Only allow numeric characters
+    if (value === '' || /^\d+$/.test(value)) {
+      setWasteBinId(value);
+    }
+  };
+
   // Update map center when coordinates prop changes
   useEffect(() => {
     if (coordinates) {
@@ -105,14 +113,17 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
       {/* Mülleimer ID Field */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          🗑️ Mülleimer ID
+          🗑️ Mülleimer ID <span className="text-red-500">*</span>
         </label>
         <Input
           type="text"
           value={wasteBinId}
-          onChange={(e) => setWasteBinId(e.target.value)}
-          placeholder="Mülleimer ID eingeben..."
+          onChange={handleWasteBinIdChange}
+          placeholder="Nur Zahlen eingeben..."
           className="w-full"
+          required
+          pattern="[0-9]*"
+          inputMode="numeric"
         />
       </div>
     </div>
