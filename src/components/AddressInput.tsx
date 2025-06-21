@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -118,23 +119,36 @@ const AddressInput: React.FC<AddressInputProps> = ({
   };
 
   const getCurrentLocation = () => {
+    console.log('GPS button clicked');
+    
     if (!navigator.geolocation) {
       alert('Geolocation wird von Ihrem Browser nicht unterstützt');
       return;
     }
 
     setIsGettingLocation(true);
+    
+    // Enhanced geolocation options
+    const options = {
+      enableHighAccuracy: true,
+      timeout: 15000, // Increased timeout
+      maximumAge: 60000 // Allow cached location up to 1 minute
+    };
+
     navigator.geolocation.getCurrentPosition(
       async (position) => {
+        console.log('GPS position received:', position);
         const { latitude, longitude } = position.coords;
         
         try {
           const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1&zoom=18`
           );
           
           if (response.ok) {
             const data = await response.json();
+            console.log('Reverse geocoding result:', data);
+            
             const addr = data.address || {};
             
             const parts = [];
@@ -145,7 +159,7 @@ const AddressInput: React.FC<AddressInputProps> = ({
               parts.push(addr.city || addr.town || addr.village);
             }
             
-            const formattedAddress = parts.join(', ');
+            const formattedAddress = parts.join(', ') || `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
             const coordinates = { lat: latitude, lng: longitude };
             
             onChange(formattedAddress, coordinates);
@@ -156,19 +170,50 @@ const AddressInput: React.FC<AddressInputProps> = ({
 
             const municipality = detectMunicipality(data);
             onPartnerMunicipalityChange(municipality);
+            
+            console.log('GPS location set successfully:', formattedAddress);
+          } else {
+            throw new Error('Reverse geocoding failed');
           }
         } catch (error) {
           console.error('Reverse geocoding error:', error);
+          // Fallback to coordinates
+          const coordinatesAddress = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+          const coordinates = { lat: latitude, lng: longitude };
+          
+          onChange(coordinatesAddress, coordinates);
+          
+          if (onLocationSelect) {
+            onLocationSelect(coordinates);
+          }
         } finally {
           setIsGettingLocation(false);
         }
       },
       (error) => {
         console.error('Geolocation error:', error);
-        alert('Standort konnte nicht ermittelt werden');
         setIsGettingLocation(false);
+        
+        let errorMessage = 'Standort konnte nicht ermittelt werden. ';
+        
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage += 'Bitte erlauben Sie den Zugriff auf Ihren Standort.';
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage += 'Standortinformationen sind nicht verfügbar.';
+            break;
+          case error.TIMEOUT:
+            errorMessage += 'Die Standortabfrage hat zu lange gedauert.';
+            break;
+          default:
+            errorMessage += 'Ein unbekannter Fehler ist aufgetreten.';
+            break;
+        }
+        
+        alert(errorMessage);
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
+      options
     );
   };
 
@@ -227,10 +272,19 @@ const AddressInput: React.FC<AddressInputProps> = ({
             className="h-8 w-8 p-0 hover:bg-blue-100"
             title="Aktuellen Standort verwenden"
           >
-            <Navigation className={`w-4 h-4 ${isGettingLocation ? 'animate-pulse' : ''}`} />
+            <Navigation className={`w-4 h-4 ${isGettingLocation ? 'animate-pulse text-blue-600' : ''}`} />
           </Button>
         </div>
       </div>
+
+      {isGettingLocation && (
+        <div className="absolute top-full left-0 right-0 bg-blue-50 border border-blue-200 rounded-md shadow-lg mt-1 p-3 z-50">
+          <div className="flex items-center space-x-2">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+            <span className="text-sm text-blue-600">Standort wird ermittelt...</span>
+          </div>
+        </div>
+      )}
 
       {isLoading && (
         <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg mt-1 p-3 z-50">
