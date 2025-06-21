@@ -56,11 +56,12 @@ const UserAccount = () => {
 
   const loadUserProfile = async () => {
     try {
+      console.log('Loading profile for user:', user?.id);
       const { data, error } = await supabase
         .from('profiles')
         .select('id, username, first_name, last_name, address, phone')
         .eq('id', user?.id)
-        .single();
+        .maybeSingle();
 
       if (error) {
         console.error('Error loading profile:', error);
@@ -68,12 +69,25 @@ const UserAccount = () => {
       }
 
       if (data) {
+        console.log('Profile loaded:', data);
         setProfile(data);
         setFormData({
           first_name: data.first_name || '',
           last_name: data.last_name || '',
           address: data.address || '',
           phone: data.phone || '',
+          current_password: '',
+          new_password: '',
+          confirm_password: ''
+        });
+      } else {
+        console.log('No profile found, creating default values');
+        // If no profile exists, set default values
+        setFormData({
+          first_name: '',
+          last_name: '',
+          address: '',
+          phone: '',
           current_password: '',
           new_password: '',
           confirm_password: ''
@@ -86,6 +100,7 @@ const UserAccount = () => {
 
   const loadUserReports = async () => {
     try {
+      console.log('Loading reports for user:', user?.id);
       const { data, error } = await supabase
         .from('bin_reports')
         .select('id, location, issue_type, comment, created_at, status, partner_municipality, waste_bin_id')
@@ -98,6 +113,7 @@ const UserAccount = () => {
       }
 
       if (data) {
+        console.log('Reports loaded:', data);
         // Add temporary case numbers for existing reports
         const reportsWithCaseNumbers = data.map(report => ({
           ...report,
@@ -205,6 +221,7 @@ const UserAccount = () => {
   };
 
   const deleteReport = async (reportId: string) => {
+    console.log('Attempting to delete report:', reportId);
     try {
       const { error } = await supabase
         .from('bin_reports')
@@ -222,6 +239,7 @@ const UserAccount = () => {
         return;
       }
 
+      console.log('Report deleted successfully');
       toast({
         title: "Meldung gelöscht",
         description: "Die Meldung wurde erfolgreich gelöscht.",
