@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { User, Mail, Lock, MapPin, Phone, FileText, Calendar, Clock, Trash2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -423,7 +422,7 @@ const UserAccount = () => {
                         )}
                         {report.comment && (
                           <div className="md:col-span-2">
-                            <p className="font-medium">Kommentar:</p>
+                            <p className="font-medium">Beschreibung:</p>
                             <p className="text-gray-600">{report.comment}</p>
                           </div>
                         )}
