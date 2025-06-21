@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useState } from 'react';
 import { MapPin, Trash2, Loader2 } from 'lucide-react';
 import { WasteBin } from '@/types/location';
@@ -14,6 +13,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
   const [selectedBin, setSelectedBin] = useState<WasteBin | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
   const [isMapLoading, setIsMapLoading] = useState(true);
+  const [navigationAttempts, setNavigationAttempts] = useState(0);
   const [loadingTimeout, setLoadingTimeout] = useState<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -43,16 +43,13 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
       
       if (event.data.type === 'wasteBinClick') {
         const { binId } = event.data;
-        console.log('Waste bin clicked:', binId);
+        console.log('Waste bin clicked on map:', binId);
         
         // Find the waste bin data
         const bin = wasteBins.find(b => b.id === binId);
         if (bin) {
           console.log('Found bin data:', bin);
           setSelectedBin(bin);
-          if (onWasteBinSelect) {
-            onWasteBinSelect(binId);
-          }
         } else {
           console.log('Bin not found in data, creating mock data for:', binId);
           const mockBin: WasteBin = {
@@ -64,9 +61,12 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
             type: 'general'
           };
           setSelectedBin(mockBin);
-          if (onWasteBinSelect) {
-            onWasteBinSelect(binId);
-          }
+        }
+        
+        // Always call the callback with the binId
+        if (onWasteBinSelect) {
+          console.log('Calling onWasteBinSelect with binId:', binId);
+          onWasteBinSelect(binId);
         }
       }
     };
@@ -76,7 +76,10 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
   }, [onWasteBinSelect, center, loadingTimeout]);
 
   const sendNavigationMessage = (coordinates: { lat: number; lng: number }) => {
-    if (!mapIframeRef.current) return;
+    if (!mapIframeRef.current) {
+      console.log('No iframe ref available for navigation');
+      return;
+    }
     
     const navigationMessage = {
       type: 'navigateToLocation',
@@ -89,9 +92,20 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
     
     console.log('Sending navigation message:', navigationMessage);
     mapIframeRef.current.contentWindow?.postMessage(navigationMessage, 'https://routenplanung.vercel.app');
+    
+    // Retry mechanism
+    setNavigationAttempts(prev => prev + 1);
+    if (navigationAttempts < 3) {
+      setTimeout(() => {
+        if (mapIframeRef.current) {
+          console.log('Retrying navigation message:', navigationMessage);
+          mapIframeRef.current.contentWindow?.postMessage(navigationMessage, 'https://routenplanung.vercel.app');
+        }
+      }, 1000);
+    }
   };
 
-  // Handle iframe load with shorter timeout
+  // Handle iframe load
   const handleIframeLoad = () => {
     console.log('Iframe loaded, waiting for map ready signal...');
     
@@ -116,6 +130,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
   useEffect(() => {
     if (center) {
       console.log('Center changed, attempting navigation to:', center);
+      setNavigationAttempts(0); // Reset attempts for new navigation
       
       if (mapIframeRef.current && isMapReady) {
         console.log('Map ready, sending navigation immediately');
