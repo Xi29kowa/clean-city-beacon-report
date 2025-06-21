@@ -2,12 +2,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { MapPin, Navigation } from 'lucide-react';
+import { MapPin, Navigation, X } from 'lucide-react';
 
 interface EnhancedLocationPickerProps {
   value: string;
   onChange: (location: string, coordinates?: { lat: number; lng: number }) => void;
   onPartnerMunicipalityChange: (municipality: string | null) => void;
+  onWasteBinSelect?: (binId: string, location: string) => void;
 }
 
 // Partner municipalities with their approximate boundaries
@@ -44,13 +45,25 @@ const partnerMunicipalities = [
   }
 ];
 
+// Mock waste bin data for demonstration
+const wasteBins = [
+  { id: 'bin_1', location: 'Lange Gasse 20', lat: 49.4521, lng: 11.0767, fillLevel: 'high' },
+  { id: 'bin_2', location: 'Hauptmarkt 18', lat: 49.4545, lng: 11.0778, fillLevel: 'medium' },
+  { id: 'bin_3', location: 'Königstraße 5', lat: 49.4533, lng: 11.0785, fillLevel: 'low' },
+  { id: 'bin_4', location: 'Lorenzkirche', lat: 49.4492, lng: 11.0788, fillLevel: 'high' },
+  { id: 'bin_5', location: 'Albrecht-Dürer-Platz', lat: 49.4567, lng: 11.0801, fillLevel: 'medium' }
+];
+
 const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
   value,
   onChange,
-  onPartnerMunicipalityChange
+  onPartnerMunicipalityChange,
+  onWasteBinSelect
 }) => {
   const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [selectedWasteBin, setSelectedWasteBin] = useState<{ id: string; location: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const mapIframeRef = useRef<HTMLIFrameElement>(null);
 
   // Check if coordinates are in partner municipality
   const checkPartnerMunicipality = (lat: number, lng: number) => {
@@ -67,6 +80,24 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
     }
     return null;
   };
+
+  // Handle waste bin selection from map
+  useEffect(() => {
+    const handleMapMessage = (event: MessageEvent) => {
+      if (event.origin !== 'https://routenplanung.vercel.app') return;
+      
+      if (event.data.type === 'wasteBinClick') {
+        const { binId, location } = event.data;
+        setSelectedWasteBin({ id: binId, location });
+        if (onWasteBinSelect) {
+          onWasteBinSelect(binId, location);
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMapMessage);
+    return () => window.removeEventListener('message', handleMapMessage);
+  }, [onWasteBinSelect]);
 
   // Get current location
   const getCurrentLocation = () => {
@@ -171,6 +202,14 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
     }
   };
 
+  // Handle waste bin deselection
+  const handleDeselectWasteBin = () => {
+    setSelectedWasteBin(null);
+    if (onWasteBinSelect) {
+      onWasteBinSelect('', '');
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Address Input */}
@@ -208,22 +247,46 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
         </p>
       </div>
 
-      {/* Enhanced Map Display */}
+      {/* Selected Waste Bin Display */}
+      {selectedWasteBin && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="block text-sm font-medium text-blue-800 mb-1">
+                🗑️ Ausgewählter Mülleimer
+              </label>
+              <p className="text-sm text-blue-700">{selectedWasteBin.location}</p>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={handleDeselectWasteBin}
+              className="text-blue-600 hover:text-blue-800"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Enhanced Interactive Map Display */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          🗺️ Karte mit vorhandenen Mülleimern
+          🗺️ Interaktive Karte mit Mülleimern
         </label>
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
           <iframe 
+            ref={mapIframeRef}
             src="https://routenplanung.vercel.app/nbg_wastebaskets_map.html"
-            className="w-full h-80 border-0 rounded-lg"
-            title="Mülleimer Karte - Standort wählen"
-            style={{ minHeight: '320px' }}
+            className="w-full h-96 border-0 rounded-t-lg"
+            title="Interaktive Mülleimer Karte"
+            style={{ minHeight: '384px' }}
           />
           <div className="p-3 bg-gray-50 rounded-b-lg">
             <p className="text-xs text-gray-600 flex items-center gap-2">
               <MapPin className="w-3 h-3" />
-              Sehen Sie vorhandene Mülleimer und deren Füllstand. Klicken Sie auf die Karte, um einen Standort zu wählen.
+              Klicken Sie auf einen Mülleimer-Marker um ihn auszuwählen. Sie können auch einen Standort ohne spezifischen Mülleimer melden.
             </p>
           </div>
         </div>

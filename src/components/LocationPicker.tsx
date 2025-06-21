@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { MapPin, Loader2, Eye, EyeOff, Search } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -190,11 +189,11 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, onPart
         format: 'json',
         addressdetails: '1',
         limit: '7',
-        countrycode: 'DE',
+        countrycodes: 'DE',
         'accept-language': 'de',
         bounded: '1',
         viewbox: `${NUREMBERG_BOUNDS.west},${NUREMBERG_BOUNDS.south},${NUREMBERG_BOUNDS.east},${NUREMBERG_BOUNDS.north}`,
-        q: `${query}, Deutschland`
+        q: query
       });
 
       const response = await fetch(
@@ -447,7 +446,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({ value, onChange, onPart
                     onClick={() => handleSuggestionClick(suggestion)}
                   >
                     <div className="text-sm font-medium text-gray-800">
-                      {highlightMatch(suggestion.formatted_address, value)}
+                      {suggestion.formatted_address}
                     </div>
                     {suggestion.display_name !== suggestion.formatted_address && (
                       <div className="text-xs text-gray-500 mt-1 truncate">
