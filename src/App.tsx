@@ -10,6 +10,7 @@ import NotFound from "./pages/NotFound";
 import Datenschutz from "./pages/Datenschutz";
 import Impressum from "./pages/Impressum";
 import Nutzungsbedingungen from "./pages/Nutzungsbedingungen";
+import Account from "./pages/Account";
 
 const queryClient = new QueryClient();
 
@@ -22,6 +23,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/account" element={<Account />} />
             <Route path="/datenschutz" element={<Datenschutz />} />
             <Route path="/impressum" element={<Impressum />} />
             <Route path="/nutzungsbedingungen" element={<Nutzungsbedingungen />} />
