@@ -28,6 +28,13 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
 
   const handleWasteBinSelect = (binId: string) => {
     console.log('Waste bin selected in EnhancedLocationPicker:', binId);
+    
+    // Automatically set the WasteBasket ID in the input field
+    setWasteBinId(binId);
+    if (onWasteBinIdChange) {
+      onWasteBinIdChange(binId);
+    }
+    
     const selectedBin = wasteBins.find(bin => bin.id === binId);
     
     if (selectedBin) {
@@ -139,12 +146,15 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
           type="text"
           value={wasteBinId}
           onChange={handleWasteBinIdChange}
-          placeholder="Nur Zahlen eingeben..."
+          placeholder="Nur Zahlen eingeben oder auf Karte klicken..."
           className="w-full"
           required
           pattern="[0-9]*"
           inputMode="numeric"
         />
+        <p className="text-xs text-gray-500 mt-1">
+          💡 Tipp: Klicken Sie auf einen Mülleimer-Marker auf der Karte, um die ID automatisch zu übernehmen
+        </p>
       </div>
 
       {/* Partner Stadtverwaltung Display - Always shown */}
