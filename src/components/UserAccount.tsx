@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { User, Mail, Lock, MapPin, Phone, FileText, Calendar, Clock, Trash2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -411,12 +410,7 @@ const UserAccount = () => {
                         </div>
                         <div>
                           <p className="font-medium">🗑️ Mülleimer-ID:</p>
-                          <p className="text-gray-600 font-mono bg-gray-100 px-2 py-1 rounded">
-                            {report.waste_bin_id && report.waste_bin_id !== 'null' && report.waste_bin_id.trim() !== '' 
-                              ? `🗑️ ${report.waste_bin_id}` 
-                              : '❌ Nicht verfügbar'
-                            }
-                          </p>
+                          <p className="text-gray-600">{report.waste_bin_id}</p>
                         </div>
                         {report.partner_municipality && (
                           <div>
