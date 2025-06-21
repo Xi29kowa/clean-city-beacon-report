@@ -20,23 +20,15 @@ const Index = () => {
   const [showMenu, setShowMenu] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [formData, setFormData] = useState({
-    location: '',
-    photo: null,
-    issueType: '',
-    comment: '',
-    partnerMunicipality: '',
-    wasteBinId: ''
-  });
-  const [address, setAddress] = useState('');
-  const [locationCoordinates, setLocationCoordinates] = useState<{ lat: number; lng: number } | null>(null);
-  const [addressSuggestions, setAddressSuggestions] = useState([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [displayCount, setDisplayCount] = useState(0);
   const [currentReportId, setCurrentReportId] = useState<string | null>(null);
   const [showNotificationDialog, setShowNotificationDialog] = useState(false);
-  const [canSubmitReport, setCanSubmitReport] = useState(false);
+  
+  // Form state for "Mülleimer melden"
+  const [address, setAddress] = useState('');
+  const [selectedWasteBasketId, setSelectedWasteBasketId] = useState('');
+  const [problemType, setProblemType] = useState('');
+  const [additionalInfo, setAdditionalInfo] = useState('');
   
   const inputRef = useRef(null);
   const { toast } = useToast();
@@ -46,37 +38,17 @@ const Index = () => {
   const { statistics, loading: statsLoading } = useStatistics();
   const { submitReport, submitNotificationRequest, isSubmitting } = useBinReports();
 
-  // Partner municipalities list
-  const partnerMunicipalities = [
-    { value: 'nuernberg', label: 'Nürnberg' },
-    { value: 'erlangen', label: 'Erlangen' },
-    { value: 'fuerth', label: 'Fürth' }
+  // Clean town and city images for slideshow - using uploaded images
+  const cityImages = [
+    '/lovable-uploads/6d72ae02-350d-4772-97a8-7c4277724471.png',
+    '/lovable-uploads/2ef5a94a-bbdd-4ab8-928b-2eea2b8f4491.png',
+    '/lovable-uploads/0343eb59-7972-47ca-98cc-2877fdd5f59a.png',
+    '/lovable-uploads/2b8fbdcc-e881-4cba-838c-9de31ff24223.png',
+    '/lovable-uploads/1be0d136-0b07-4c24-b9ef-4a8735691b13.png'
   ];
 
-  // Setup iframe communication for map interaction
-  useEffect(() => {
-    const handleMapMessage = (event: MessageEvent) => {
-      // Only accept messages from the trusted map origin
-      if (event.origin !== 'https://routenplanung.vercel.app') return;
-      
-      console.log('Received map message:', event.data);
-      
-      if (event.data.type === 'wasteBasketSelected') {
-        console.log('Waste basket selected:', event.data.id);
-        setFormData(prev => ({ ...prev, wasteBinId: event.data.id }));
-        toast({
-          title: "Mülleimer ausgewählt",
-          description: `WasteBasket ID: ${event.data.id}`,
-        });
-      }
-    };
-
-    window.addEventListener('message', handleMapMessage);
-    return () => window.removeEventListener('message', handleMapMessage);
-  }, [toast]);
-
   // Animation function for counter
-  const animateCounter = (start, end, duration = 1000) => {
+  const animateCounter = (start: number, end: number, duration = 1000) => {
     const startTime = Date.now();
     const range = end - start;
     
@@ -103,122 +75,26 @@ const Index = () => {
     }
   }, [statistics.total_reports, statsLoading]);
 
-  // Check if report can be submitted based on partner municipality
+  // Slideshow effect
   useEffect(() => {
-    const hasLocation = formData.location?.trim();
-    const hasIssueType = formData.issueType;
-    const hasPartnerMunicipality = formData.partnerMunicipality;
-    
-    setCanSubmitReport(Boolean(hasLocation && hasIssueType && hasPartnerMunicipality));
-  }, [formData.location, formData.issueType, formData.partnerMunicipality]);
+    const interval = setInterval(() => {
+      setCurrentImageIndex((prevIndex) => 
+        prevIndex === cityImages.length - 1 ? 0 : prevIndex + 1
+      );
+    }, 4000);
 
-  const handleLocationChange = (location: string, coordinates?: { lat: number; lng: number }) => {
-    setFormData(prev => ({ ...prev, location }));
-    if (coordinates) {
-      setLocationCoordinates(coordinates);
+    return () => clearInterval(interval);
+  }, [cityImages.length]);
+
+  const handleLogout = () => {
+    logout();
+    if (currentView === 'karte') {
+      setCurrentView('home');
     }
-  };
-
-  const handlePartnerMunicipalityChange = (municipality: string | null) => {
-    setFormData(prev => ({ ...prev, partnerMunicipality: municipality || '' }));
-  };
-
-  const handleWasteBinSelect = (binId: string, binLocation: string) => {
-    console.log('Waste bin selected in Index:', binId, binLocation);
-    setFormData(prev => ({ 
-      ...prev, 
-      wasteBinId: binId,
-      location: binLocation || prev.location
-    }));
-  };
-
-  const handlePhotoUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setFormData(prev => ({ ...prev, photo: file }));
-      toast({
-        title: "Foto hochgeladen!",
-        description: "Ihr Bild wurde zur Meldung hinzugefügt.",
-      });
-    }
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    console.log('Form submission started with data:', {
-      location: formData.location,
-      issueType: formData.issueType,
-      comment: formData.comment?.trim() || null,
-      photo: formData.photo?.name || 'none',
-      partnerMunicipality: formData.partnerMunicipality,
-      wasteBinId: formData.wasteBinId
+    toast({
+      title: "Erfolgreich abgemeldet",
+      description: "Auf Wiedersehen!",
     });
-    
-    if (!formData.location?.trim()) {
-      toast({
-        title: "Fehlende Angaben",
-        description: "Bitte geben Sie einen Standort an.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    if (!formData.issueType) {
-      toast({
-        title: "Fehlende Angaben", 
-        description: "Bitte wählen Sie eine Problemart aus.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!formData.partnerMunicipality) {
-      toast({
-        title: "Standort nicht unterstützt",
-        description: "Leider unterstützen wir derzeit nur Meldungen in ausgewählten Partnerstädten.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    const reportId = await submitReport({
-      location: formData.location.trim(),
-      issue_type: formData.issueType,
-      comment: formData.comment?.trim() || null,
-      photo: formData.photo,
-      partner_municipality: formData.partnerMunicipality || null
-    });
-
-    if (reportId) {
-      setCurrentReportId(reportId);
-      setCurrentView('confirmation');
-      setFormData({ 
-        location: '', 
-        photo: null, 
-        issueType: '', 
-        comment: '', 
-        partnerMunicipality: '',
-        wasteBinId: '' 
-      });
-      setAddress('');
-      setLocationCoordinates(null);
-      toast({
-        title: "Meldung erfolgreich!",
-        description: "Ihre Meldung wurde an die Stadtreinigung weitergeleitet.",
-      });
-    } else {
-      toast({
-        title: "Fehler beim Senden",
-        description: "Ihre Meldung konnte nicht übermittelt werden. Bitte versuchen Sie es erneut.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleNotificationRequest = async (email: string) => {
-    if (!currentReportId) return false;
-    return await submitNotificationRequest(email, currentReportId);
   };
 
   const handleShare = async () => {
@@ -254,15 +130,57 @@ const Index = () => {
     }
   };
 
-  const handleLogout = () => {
-    logout();
-    if (currentView === 'karte') {
-      setCurrentView('home');
+  const handleNotificationRequest = async (email: string) => {
+    if (!currentReportId) return false;
+    return await submitNotificationRequest(email, currentReportId);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!address || !problemType) {
+      toast({
+        title: "Fehlende Angaben",
+        description: "Bitte füllen Sie alle Pflichtfelder aus.",
+        variant: "destructive",
+      });
+      return;
     }
-    toast({
-      title: "Erfolgreich abgemeldet",
-      description: "Auf Wiedersehen!",
+
+    console.log('Form submission:', {
+      address,
+      selectedWasteBasketId,
+      problemType,
+      additionalInfo
     });
+
+    const reportId = await submitReport({
+      location: address.trim(),
+      issue_type: problemType,
+      comment: additionalInfo?.trim() || null,
+      photo: null,
+      partner_municipality: 'nuernberg'
+    });
+
+    if (reportId) {
+      setCurrentReportId(reportId);
+      setCurrentView('confirmation');
+      // Reset form
+      setAddress('');
+      setSelectedWasteBasketId('');
+      setProblemType('');
+      setAdditionalInfo('');
+      toast({
+        title: "Meldung erfolgreich!",
+        description: "Ihre Meldung wurde an die Stadtreinigung weitergeleitet.",
+      });
+    } else {
+      toast({
+        title: "Fehler beim Senden",
+        description: "Ihre Meldung konnte nicht übermittelt werden. Bitte versuchen Sie es erneut.",
+        variant: "destructive",
+      });
+    }
   };
 
   const renderHeader = () => (
@@ -350,7 +268,7 @@ const Index = () => {
           <div className="hidden md:flex items-center justify-end w-48 flex-shrink-0">
             {isLoggedIn ? (
               <div className="flex items-center space-x-3">
-                {/* User Profile Widget - Removed "Hallo," text */}
+                {/* User Profile Widget */}
                 <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
                   <User className="w-5 h-5 text-green-600" />
                   <span className="text-sm font-medium text-green-800">{user?.username}!</span>
@@ -462,7 +380,7 @@ const Index = () => {
             <div className="border-t border-gray-200 pt-4 space-y-2">
               {isLoggedIn ? (
                 <div className="space-y-2">
-                  {/* Mobile User Profile Widget - Removed "Hallo," text */}
+                  {/* Mobile User Profile Widget */}
                   <div className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-lg">
                     <User className="w-5 h-5 text-green-600" />
                     <span className="text-sm font-medium text-green-800">{user?.username}!</span>
@@ -492,26 +410,6 @@ const Index = () => {
       </div>
     </header>
   );
-
-  // Clean town and city images for slideshow - using uploaded images
-  const cityImages = [
-    '/lovable-uploads/6d72ae02-350d-4772-97a8-7c4277724471.png',
-    '/lovable-uploads/2ef5a94a-bbdd-4ab8-928b-2eea2b8f4491.png',
-    '/lovable-uploads/0343eb59-7972-47ca-98cc-2877fdd5f59a.png',
-    '/lovable-uploads/2b8fbdcc-e881-4cba-838c-9de31ff24223.png',
-    '/lovable-uploads/1be0d136-0b07-4c24-b9ef-4a8735691b13.png'
-  ];
-
-  // Slideshow effect
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentImageIndex((prevIndex) => 
-        prevIndex === cityImages.length - 1 ? 0 : prevIndex + 1
-      );
-    }, 4000);
-
-    return () => clearInterval(interval);
-  }, [cityImages.length]);
 
   const renderHome = () => (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50">
@@ -627,6 +525,247 @@ const Index = () => {
           </div>
         </div>
       </section>
+    </div>
+  );
+
+  const renderReportForm = () => (
+    <div className="min-h-screen bg-gray-50">
+      {renderHeader()}
+      
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-2xl text-green-800 flex items-center">
+              <Upload className="w-6 h-6 mr-2" />
+              Mülleimer melden
+            </CardTitle>
+            <p className="text-gray-600">
+              Helfen Sie uns, problematische Mülleimer schnell zu identifizieren
+            </p>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* 1. Standort Section */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium mb-2">
+                  Standort *
+                </label>
+                <div className="flex gap-2">
+                  <input 
+                    type="text"
+                    placeholder="Adresse eingeben (z.B. Lange Gasse 20, Nürnberg)"
+                    className="flex-1 p-3 border rounded-lg"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                  />
+                  <button 
+                    type="button"
+                    className="px-4 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                    onClick={() => {
+                      console.log('GPS button clicked');
+                      // GPS functionality can be added here
+                    }}
+                  >
+                    📍 GPS
+                  </button>
+                </div>
+              </div>
+
+              {/* 2. Mülleimer ID Section */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium mb-2">
+                  Mülleimer ID
+                </label>
+                <input 
+                  type="text"
+                  placeholder="Wird automatisch befüllt wenn Mülleimer ausgewählt"
+                  className="w-full p-3 border rounded-lg bg-gray-100"
+                  readOnly
+                  value={selectedWasteBasketId}
+                />
+                <p className="text-sm text-gray-600 mt-1">
+                  Hinweis: Wählen Sie einen Mülleimer auf der Karte aus
+                </p>
+              </div>
+
+              {/* 3. Partner Stadtverwaltung Section */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium mb-2">
+                  Partner Stadtverwaltung *
+                </label>
+                <select className="w-full p-3 border rounded-lg" disabled>
+                  <option value="nuernberg">Nürnberg</option>
+                </select>
+                <p className="text-sm text-gray-600 mt-1">
+                  Momentan nur Nürnberg verfügbar
+                </p>
+              </div>
+
+              {/* 4. Foto Upload Section */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium mb-2">
+                  Foto (optional)
+                </label>
+                <input 
+                  type="file"
+                  accept="image/*"
+                  className="w-full p-3 border rounded-lg"
+                />
+                <p className="text-sm text-gray-600 mt-1">
+                  Laden Sie ein Foto des Problems hoch
+                </p>
+              </div>
+
+              {/* 5. Problem Art Section */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium mb-2">
+                  Problem Art *
+                </label>
+                <select 
+                  className="w-full p-3 border rounded-lg"
+                  value={problemType}
+                  onChange={(e) => setProblemType(e.target.value)}
+                >
+                  <option value="">Problem auswählen</option>
+                  <option value="ueberfuellt">Überfüllt</option>
+                  <option value="beschaedigt">Beschädigt</option>
+                  <option value="vandalismus">Vandalismus</option>
+                  <option value="stinkt">Stinkt</option>
+                  <option value="fehlt_komplett">Fehlt komplett</option>
+                </select>
+              </div>
+
+              {/* 6. Zusätzliche Informationen Section */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium mb-2">
+                  Zusätzliche Informationen (optional)
+                </label>
+                <textarea 
+                  placeholder="Beschreiben Sie das Problem genauer..."
+                  rows={4}
+                  className="w-full p-3 border rounded-lg"
+                  value={additionalInfo}
+                  onChange={(e) => setAdditionalInfo(e.target.value)}
+                />
+              </div>
+
+              {/* 7. Submit Button */}
+              <button 
+                type="submit"
+                disabled={!address || !problemType || isSubmitting}
+                className={`w-full py-3 px-6 rounded-lg font-medium ${
+                  address && problemType && !isSubmitting
+                    ? 'bg-green-500 hover:bg-green-600 text-white cursor-pointer'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                {isSubmitting ? (
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                    Wird gesendet...
+                  </div>
+                ) : (
+                  'Mülleimer melden'
+                )}
+              </button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+
+  // Simple Karte view with just the map iframe
+  const renderKarte = () => (
+    <div className="min-h-screen bg-gray-50">
+      {renderHeader()}
+      
+      <div className="container mx-auto px-4 py-8">
+        <iframe 
+          src="https://routenplanung.vercel.app/nbg_wastebaskets_map.html"
+          className="w-full h-[600px] border-0"
+          title="Nürnberg Waste Baskets Map"
+        />
+      </div>
+    </div>
+  );
+
+  const renderConfirmation = () => (
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50">
+      {renderHeader()}
+      
+      <div className="container mx-auto px-4 py-16 text-center max-w-2xl">
+        <div className="bg-white rounded-xl p-8 shadow-lg">
+          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <CheckCircle className="w-12 h-12 text-green-600" />
+          </div>
+          
+          <h2 className="text-3xl font-bold text-green-800 mb-4">
+            Vielen Dank!
+          </h2>
+          
+          <p className="text-lg text-gray-600 mb-8">
+            Ihre Meldung wurde erfolgreich übermittelt. Die Stadtreinigung wird schnellstmöglich reagieren.
+          </p>
+
+          <div className="space-y-4 mb-8">
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <h3 className="font-semibold text-blue-800 mb-2">
+                🔔 Benachrichtigungen erhalten?
+              </h3>
+              <p className="text-sm text-blue-600 mb-3">
+                Möchten Sie informiert werden, wenn dieser Mülleimer geleert wurde?
+              </p>
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => setShowNotificationDialog(true)}
+              >
+                Ja, benachrichtigen
+              </Button>
+            </div>
+
+            <div className="bg-green-50 p-4 rounded-lg">
+              <h3 className="font-semibold text-green-800 mb-2">
+                📢 CleanCity weiterempfehlen
+              </h3>
+              <p className="text-sm text-green-600 mb-3">
+                Erzählen Sie anderen von CleanCity!
+              </p>
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={handleShare}
+              >
+                <Share2 className="w-4 h-4 mr-2" />
+                App teilen
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <Button
+              onClick={() => setCurrentView('report')}
+              className="w-full bg-green-500 hover:bg-green-600"
+            >
+              Weiteren Mülleimer melden
+            </Button>
+            <Button
+              onClick={() => setCurrentView('home')}
+              variant="outline"
+              className="w-full"
+            >
+              Zur Startseite
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <NotificationDialog
+        isOpen={showNotificationDialog}
+        onClose={() => setShowNotificationDialog(false)}
+        onSubmit={handleNotificationRequest}
+      />
     </div>
   );
 
@@ -771,264 +910,6 @@ const Index = () => {
           </Card>
         </div>
       </section>
-    </div>
-  );
-
-  const renderReportForm = () => (
-    <div className="min-h-screen bg-gray-50">
-      {renderHeader()}
-      
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl text-green-800 flex items-center">
-              <Upload className="w-6 h-6 mr-2" />
-              Mülleimer melden
-            </CardTitle>
-            <p className="text-gray-600">
-              Helfen Sie uns, problematische Mülleimer schnell zu identifizieren
-            </p>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Address Search Section */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Standort:
-                </label>
-                <div className="flex gap-2">
-                  <input 
-                    type="text"
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="Adresse eingeben (z.B. Lange Gasse 20, Nürnberg)"
-                    className="flex-1 p-2 border rounded"
-                  />
-                  <button 
-                    type="button"
-                    className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                    onClick={() => {
-                      // This will be used to navigate the map to the address
-                      console.log('Navigate to:', address);
-                      setFormData(prev => ({ ...prev, location: address }));
-                      toast({
-                        title: "Adresse übernommen",
-                        description: `Standort: ${address}`,
-                      });
-                    }}
-                  >
-                    📍 Suchen
-                  </button>
-                </div>
-              </div>
-
-              {/* Partner Municipality Display */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  🏛️ Partner Stadtverwaltung
-                </label>
-                <Select 
-                  value={formData.partnerMunicipality} 
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, partnerMunicipality: value }))}
-                >
-                  <SelectTrigger className={formData.partnerMunicipality ? "bg-green-50 border-green-200" : "bg-gray-100"}>
-                    <SelectValue placeholder="Wird automatisch basierend auf der Adresse ausgewählt" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {partnerMunicipalities.map((municipality) => (
-                      <SelectItem key={municipality.value} value={municipality.value}>
-                        {municipality.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {!formData.partnerMunicipality && formData.location && (
-                  <p className="text-xs text-orange-600 mt-1 bg-orange-50 p-2 rounded">
-                    ⚠️ Leider unterstützen wir derzeit nur Meldungen in ausgewählten Partnerstädten.
-                  </p>
-                )}
-                {formData.partnerMunicipality && (
-                  <p className="text-xs text-green-600 mt-1 bg-green-50 p-2 rounded">
-                    ✅ Zuständige Stadtverwaltung automatisch erkannt
-                  </p>
-                )}
-              </div>
-
-              {/* Foto Upload */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  📷 Foto (optional)
-                </label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={handlePhotoUpload}
-                    className="hidden"
-                    id="photo-upload"
-                  />
-                  <label htmlFor="photo-upload" className="cursor-pointer">
-                    <Camera className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                    <p className="text-gray-600">
-                      {formData.photo ? formData.photo.name : 'Foto aufnehmen oder auswählen'}
-                    </p>
-                  </label>
-                </div>
-              </div>
-
-              {/* Problem Type */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Problem-Art *
-                </label>
-                <Select 
-                  value={formData.issueType} 
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, issueType: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Wählen Sie das Problem aus" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="overfilled">🗑️ Überfüllt</SelectItem>
-                    <SelectItem value="broken">🔧 Beschädigt</SelectItem>
-                    <SelectItem value="smelly">💨 Stinkt</SelectItem>
-                    <SelectItem value="vandalized">⚠️ Vandalismus</SelectItem>
-                    <SelectItem value="missing">❌ Fehlt komplett</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Comment */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Zusätzliche Informationen (optional)
-                </label>
-                <Textarea
-                  placeholder="Beschreiben Sie das Problem genauer..."
-                  value={formData.comment}
-                  onChange={(e) => setFormData(prev => ({ ...prev, comment: e.target.value }))}
-                  rows={3}
-                />
-              </div>
-
-              {/* Submit Button */}
-              <Button
-                type="submit"
-                disabled={isSubmitting || !canSubmitReport}
-                className={`w-full py-3 text-lg ${
-                  canSubmitReport 
-                    ? "bg-green-500 hover:bg-green-600" 
-                    : "bg-gray-300 cursor-not-allowed"
-                }`}
-              >
-                {isSubmitting ? (
-                  <div className="flex items-center">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                    Wird gesendet...
-                  </div>
-                ) : (
-                  canSubmitReport ? 'Meldung absenden' : 'Standort in Partnerstadt erforderlich'
-                )}
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-
-  // Simple Karte view with just the map iframe
-  const renderKarte = () => (
-    <div className="min-h-screen bg-gray-50">
-      {renderHeader()}
-      
-      <div className="container mx-auto px-4 py-8">
-        <iframe 
-          src="https://routenplanung.vercel.app/nbg_wastebaskets_map.html"
-          className="w-full h-[600px] border-0"
-          title="Nürnberg Waste Baskets Map"
-        />
-      </div>
-    </div>
-  );
-
-  const renderConfirmation = () => (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50">
-      {renderHeader()}
-      
-      <div className="container mx-auto px-4 py-16 text-center max-w-2xl">
-        <div className="bg-white rounded-xl p-8 shadow-lg">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle className="w-12 h-12 text-green-600" />
-          </div>
-          
-          <h2 className="text-3xl font-bold text-green-800 mb-4">
-            Vielen Dank!
-          </h2>
-          
-          <p className="text-lg text-gray-600 mb-8">
-            Ihre Meldung wurde erfolgreich übermittelt. Die Stadtreinigung wird schnellstmöglich reagieren.
-          </p>
-
-          <div className="space-y-4 mb-8">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <h3 className="font-semibold text-blue-800 mb-2">
-                🔔 Benachrichtigungen erhalten?
-              </h3>
-              <p className="text-sm text-blue-600 mb-3">
-                Möchten Sie informiert werden, wenn dieser Mülleimer geleert wurde?
-              </p>
-              <Button 
-                variant="outline" 
-                className="w-full"
-                onClick={() => setShowNotificationDialog(true)}
-              >
-                Ja, benachrichtigen
-              </Button>
-            </div>
-
-            <div className="bg-green-50 p-4 rounded-lg">
-              <h3 className="font-semibold text-green-800 mb-2">
-                📢 CleanCity weiterempfehlen
-              </h3>
-              <p className="text-sm text-green-600 mb-3">
-                Erzählen Sie anderen von CleanCity!
-              </p>
-              <Button 
-                variant="outline" 
-                className="w-full"
-                onClick={handleShare}
-              >
-                <Share2 className="w-4 h-4 mr-2" />
-                App teilen
-              </Button>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <Button
-              onClick={() => setCurrentView('report')}
-              className="w-full bg-green-500 hover:bg-green-600"
-            >
-              Weiteren Mülleimer melden
-            </Button>
-            <Button
-              onClick={() => setCurrentView('home')}
-              variant="outline"
-              className="w-full"
-            >
-              Zur Startseite
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      <NotificationDialog
-        isOpen={showNotificationDialog}
-        onClose={() => setShowNotificationDialog(false)}
-        onSubmit={handleNotificationRequest}
-      />
     </div>
   );
 
