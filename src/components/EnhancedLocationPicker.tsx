@@ -18,7 +18,7 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
   coordinates
 }) => {
   const [selectedWasteBin, setSelectedWasteBin] = useState<WasteBin | null>(null);
-  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(coordinates || null);
 
   const handleWasteBinSelect = (binId: string) => {
     console.log('Waste bin selected in EnhancedLocationPicker:', binId);
@@ -55,39 +55,27 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
   };
 
   const handleLocationSelect = (coordinates: { lat: number; lng: number }) => {
-    console.log('Location selected, setting map center to:', coordinates);
-    // Convert to plain object to avoid reactive wrapper issues
-    const plainCoords = {
-      lat: Number(coordinates.lat),
-      lng: Number(coordinates.lng)
-    };
-    setMapCenter(plainCoords);
+    console.log('Location selected, navigating map to:', coordinates);
+    // Force immediate map navigation
+    setMapCenter({ ...coordinates });
   };
 
   const handleAddressChange = (location: string, coordinates?: { lat: number; lng: number }) => {
-    console.log('Address changed - location:', location, 'coordinates:', coordinates);
+    console.log('Address changed:', location, coordinates);
     onChange(location, coordinates);
     
-    // Set map center when address changes with coordinates
+    // Force immediate map navigation when address changes
     if (coordinates) {
-      console.log('Address changed, setting map center to:', coordinates);
-      const plainCoords = {
-        lat: Number(coordinates.lat),
-        lng: Number(coordinates.lng)
-      };
-      setMapCenter(plainCoords);
+      console.log('Address changed, forcing map navigation to:', coordinates);
+      setMapCenter({ ...coordinates });
     }
   };
 
   // Update map center when coordinates prop changes
   useEffect(() => {
     if (coordinates) {
-      console.log('Coordinates prop changed, setting map center to:', coordinates);
-      const plainCoords = {
-        lat: Number(coordinates.lat),
-        lng: Number(coordinates.lng)
-      };
-      setMapCenter(plainCoords);
+      console.log('Coordinates prop changed, updating map center:', coordinates);
+      setMapCenter({ ...coordinates });
     }
   }, [coordinates?.lat, coordinates?.lng]);
 
