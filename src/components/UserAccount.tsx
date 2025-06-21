@@ -244,8 +244,12 @@ const UserAccount = () => {
         description: "Die Meldung wurde erfolgreich gelöscht.",
       });
 
-      // Remove the report from the local state immediately
-      setReports(prev => prev.filter(report => report.id !== reportId));
+      // Remove the report from the local state immediately and persistently
+      setReports(prev => {
+        const updatedReports = prev.filter(report => report.id !== reportId);
+        console.log('Updated reports after deletion:', updatedReports);
+        return updatedReports;
+      });
     } catch (error) {
       console.error('Error deleting report:', error);
       toast({
