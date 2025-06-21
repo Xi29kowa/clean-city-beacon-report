@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { User, Mail, Lock, MapPin, Phone, FileText, Calendar, Clock, Trash2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -112,12 +113,15 @@ const UserAccount = () => {
       }
 
       if (data) {
-        console.log('Reports loaded with waste_bin_id:', data);
+        console.log('🗑️ REPORTS LOADED WITH WASTE_BIN_ID:', data);
         // Generate case numbers for reports
-        const reportsWithCaseNumbers = data.map(report => ({
-          ...report,
-          case_number: `CASE-${Math.random().toString(36).substr(2, 8).toUpperCase()}`
-        }));
+        const reportsWithCaseNumbers = data.map(report => {
+          console.log(`🗑️ Report ${report.id} has waste_bin_id: "${report.waste_bin_id}"`);
+          return {
+            ...report,
+            case_number: `CASE-${Math.random().toString(36).substr(2, 8).toUpperCase()}`
+          };
+        });
 
         setReports(reportsWithCaseNumbers);
       }
@@ -220,15 +224,10 @@ const UserAccount = () => {
   };
 
   const deleteReport = async (reportId: string) => {
-    console.log('🗑️ DELETING REPORT:', reportId);
-    
-    // Immediately remove from UI state FIRST
-    const originalReports = [...reports];
-    const updatedReports = reports.filter(report => report.id !== reportId);
-    setReports(updatedReports);
-    console.log('✅ Immediately removed from UI, new count:', updatedReports.length);
+    console.log('🗑️🗑️🗑️ PERMANENTLY DELETING REPORT:', reportId);
     
     try {
+      // FIRST: DELETE FROM DATABASE IMMEDIATELY
       const { error } = await supabase
         .from('bin_reports')
         .delete()
@@ -237,8 +236,6 @@ const UserAccount = () => {
 
       if (error) {
         console.error('❌ Database deletion failed:', error);
-        // Restore original state on error
-        setReports(originalReports);
         toast({
           title: "Fehler",
           description: "Fehler beim Löschen der Meldung.",
@@ -247,15 +244,19 @@ const UserAccount = () => {
         return;
       }
 
-      console.log('✅ Report successfully deleted from database');
+      console.log('✅ Report successfully DELETED from database');
+
+      // SECOND: REMOVE FROM UI STATE IMMEDIATELY
+      const updatedReports = reports.filter(report => report.id !== reportId);
+      setReports(updatedReports);
+      console.log('✅ Report REMOVED from UI, new count:', updatedReports.length);
+
       toast({
         title: "Meldung gelöscht",
-        description: "Die Meldung wurde erfolgreich gelöscht.",
+        description: "Die Meldung wurde PERMANENT gelöscht.",
       });
     } catch (error) {
       console.error('❌ Unexpected error during deletion:', error);
-      // Restore original state on error
-      setReports(originalReports);
       toast({
         title: "Fehler",
         description: "Fehler beim Löschen der Meldung.",
@@ -400,7 +401,7 @@ const UserAccount = () => {
                         <div>
                           <p className="font-medium">Mülleimer-ID:</p>
                           <p className="text-gray-600 font-mono bg-gray-100 px-2 py-1 rounded">
-                            {report.waste_bin_id || 'Nicht verfügbar'}
+                            {report.waste_bin_id ? `🗑️ ${report.waste_bin_id}` : 'Nicht verfügbar'}
                           </p>
                         </div>
                         {report.partner_municipality && (
