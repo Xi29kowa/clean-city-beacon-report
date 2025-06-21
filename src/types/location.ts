@@ -2,6 +2,7 @@
 export interface AddressSuggestion {
   display_name: string;
   short_name?: string;
+  formatted_address?: string;
   lat: string;
   lon: string;
   address?: {

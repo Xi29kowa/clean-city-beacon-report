@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -334,7 +332,7 @@ const AddressInput: React.FC<AddressInputProps> = ({
                 <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-gray-900 truncate">
-                    {suggestion.formatted_address}
+                    {suggestion.formatted_address || suggestion.short_name}
                   </div>
                   <div className="text-sm text-gray-500 truncate">
                     {suggestion.display_name}
@@ -355,4 +353,3 @@ const AddressInput: React.FC<AddressInputProps> = ({
 };
 
 export default AddressInput;
-
