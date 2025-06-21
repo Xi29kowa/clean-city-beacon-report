@@ -28,6 +28,7 @@ interface BinReport {
   created_at: string;
   status: string;
   partner_municipality?: string;
+  waste_bin_id?: string;
 }
 
 const UserAccount = () => {
@@ -86,7 +87,7 @@ const UserAccount = () => {
     try {
       const { data, error } = await supabase
         .from('bin_reports')
-        .select('*')
+        .select('id, case_number, location, issue_type, comment, created_at, status, partner_municipality, waste_bin_id')
         .eq('user_id', user?.id)
         .order('created_at', { ascending: false });
 
@@ -420,6 +421,12 @@ const UserAccount = () => {
                           <p className="font-medium">Problem:</p>
                           <p className="text-gray-600">{report.issue_type}</p>
                         </div>
+                        {report.waste_bin_id && (
+                          <div>
+                            <p className="font-medium">Mülleimer ID:</p>
+                            <p className="text-gray-600">{report.waste_bin_id}</p>
+                          </div>
+                        )}
                         {report.partner_municipality && (
                           <div>
                             <p className="font-medium">Gemeinde:</p>
@@ -427,7 +434,7 @@ const UserAccount = () => {
                           </div>
                         )}
                         {report.comment && (
-                          <div>
+                          <div className="md:col-span-2">
                             <p className="font-medium">Kommentar:</p>
                             <p className="text-gray-600">{report.comment}</p>
                           </div>
