@@ -1246,7 +1246,11 @@ const Index = () => {
                 Nutzungsbedingungen
               </Button>
               <div className="pt-4 border-t">
-                <Button variant="outline" className="w-full justify-start">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  onClick={() => window.location.href = 'mailto:stadtverwaltung@musterstadt.de?subject=Anfrage über CleanCity'}
+                >
                   <Phone className="w-4 h-4 mr-2" />
                   Stadtverwaltung kontaktieren
                 </Button>
