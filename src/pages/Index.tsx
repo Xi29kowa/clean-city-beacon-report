@@ -595,8 +595,7 @@ const Index = () => {
                 onChange={handleLocationChange}
                 onPartnerMunicipalityChange={handlePartnerMunicipalityChange}
                 onWasteBinSelect={handleWasteBinSelect}
-                selectedPartnerMunicipality={formData.partnerMunicipality}
-                selectedWasteBinId={formData.wasteBinId}
+                onWasteBinIdChange={(id) => setFormData(prev => ({ ...prev, wasteBinId: id }))}
               />
 
               {/* Problem Type */}
