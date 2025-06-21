@@ -775,40 +775,18 @@ const Index = () => {
                 coordinates={locationCoordinates}
               />
 
-              {/* Mülleimer ID Display Field */}
+              {/* Waste Bin ID Display Field */}
               {formData.wasteBinId && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    🗑️ Mülleimer ID
+                    🗑️ Ausgewählter Mülleimer
                   </label>
                   <Input
                     type="text"
-                    value={formData.wasteBinId}
+                    value={`Mülleimer ID: ${formData.wasteBinId}`}
                     readOnly
                     className="bg-blue-50 border-blue-200 text-blue-800 font-medium"
-                    placeholder="Mülleimer ID wird nach Auswahl auf der Karte angezeigt"
                   />
-                  <p className="text-xs text-blue-600 mt-1">
-                    ✅ Mülleimer auf der Karte ausgewählt
-                  </p>
-                </div>
-              )}
-
-              {!formData.wasteBinId && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    🗑️ Mülleimer ID
-                  </label>
-                  <Input
-                    type="text"
-                    value=""
-                    readOnly
-                    className="bg-gray-50 border-gray-200 text-gray-500"
-                    placeholder="Klicken Sie auf einen Mülleimer auf der Karte"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    💡 Klicken Sie auf einen Mülleimer-Marker auf der Karte um die ID anzuzeigen
-                  </p>
                 </div>
               )}
 
