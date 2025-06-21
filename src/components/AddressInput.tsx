@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { MapPin, Navigation, X, Clock } from 'lucide-react';
+import { MapPin, Navigation, X, Clock, Search } from 'lucide-react';
 import { AddressSuggestion } from '@/types/location';
 import { partnerMunicipalities } from '@/data/municipalities';
 
@@ -47,7 +48,7 @@ const AddressInput: React.FC<AddressInputProps> = ({
     localStorage.setItem('recent-addresses', JSON.stringify(updated));
   };
 
-  // Google Maps-style address search
+  // Enhanced address search with multiple APIs
   const searchAddresses = useCallback(async (searchTerm: string) => {
     if (searchTerm.length < 2) {
       setSuggestions([]);
@@ -55,68 +56,128 @@ const AddressInput: React.FC<AddressInputProps> = ({
       return;
     }
 
+    console.log('Searching for address:', searchTerm);
     setIsLoading(true);
     setShowSuggestions(true);
 
     try {
-      const query = encodeURIComponent(searchTerm);
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=6&q=${query}&countrycodes=de&dedupe=1&extratags=1`
-      );
+      // Enhanced Nominatim search with better parameters
+      const nominatimQuery = encodeURIComponent(`${searchTerm}, Deutschland`);
+      const nominatimUrl = `https://nominatim.openstreetmap.org/search?` +
+        `format=json&` +
+        `addressdetails=1&` +
+        `limit=8&` +
+        `q=${nominatimQuery}&` +
+        `countrycodes=de&` +
+        `dedupe=1&` +
+        `extratags=1&` +
+        `namedetails=1&` +
+        `accept-language=de,en`;
+
+      console.log('Nominatim URL:', nominatimUrl);
+      
+      const response = await fetch(nominatimUrl, {
+        headers: {
+          'User-Agent': 'Muelleimer-App/1.0'
+        }
+      });
       
       if (response.ok) {
-        const data: AddressSuggestion[] = await response.json();
+        const data: any[] = await response.json();
+        console.log('Nominatim response:', data);
         
-        // Format suggestions Google Maps style
+        // Enhanced filtering and formatting
         const formattedSuggestions = data
-          .filter(suggestion => 
-            suggestion.address && 
-            suggestion.address.country_code === 'de' &&
-            (suggestion.importance || 0) > 0.1
-          )
+          .filter(suggestion => {
+            // Better filtering
+            const hasAddress = suggestion.address && suggestion.address.country_code === 'de';
+            const hasImportance = (suggestion.importance || 0) > 0.1;
+            const isRelevant = suggestion.class !== 'tourism' && 
+                             suggestion.class !== 'natural' && 
+                             suggestion.type !== 'administrative';
+            
+            return hasAddress && hasImportance && isRelevant;
+          })
           .map(suggestion => {
             const addr = suggestion.address!;
             
-            // Primary line: Street + House Number
-            const primaryParts = [];
-            if (addr.road) primaryParts.push(addr.road);
-            if (addr.house_number) primaryParts.push(addr.house_number);
-            
-            // Secondary line: Postal Code + City
-            const secondaryParts = [];
-            if (addr.postcode) secondaryParts.push(addr.postcode);
-            if (addr.city || addr.town || addr.village) {
-              secondaryParts.push(addr.city || addr.town || addr.village);
+            // Build primary address (street + number)
+            const streetParts = [];
+            if (addr.road || addr.pedestrian || addr.path) {
+              streetParts.push(addr.road || addr.pedestrian || addr.path);
             }
-            if (addr.state) secondaryParts.push(addr.state);
+            if (addr.house_number) {
+              streetParts.push(addr.house_number);
+            }
             
-            const primaryAddress = primaryParts.join(' ');
-            const secondaryAddress = secondaryParts.join(', ');
+            // Build secondary address (postal + city + state)
+            const locationParts = [];
+            if (addr.postcode) locationParts.push(addr.postcode);
+            
+            const cityName = addr.city || addr.town || addr.village || addr.municipality || addr.hamlet;
+            if (cityName) locationParts.push(cityName);
+            
+            if (addr.state && !locationParts.join(' ').includes(addr.state)) {
+              locationParts.push(addr.state);
+            }
+            
+            const primaryAddress = streetParts.join(' ');
+            const secondaryAddress = locationParts.join(', ');
+            
+            // Fallback to display_name parts if no structured address
+            let formattedPrimary = primaryAddress;
+            let formattedSecondary = secondaryAddress;
+            
+            if (!formattedPrimary && !formattedSecondary) {
+              const displayParts = suggestion.display_name.split(',').map(p => p.trim());
+              formattedPrimary = displayParts[0] || '';
+              formattedSecondary = displayParts.slice(1, 3).join(', ');
+            }
             
             return {
               ...suggestion,
-              formatted_address: primaryAddress || suggestion.display_name.split(',')[0],
-              short_name: secondaryAddress,
+              formatted_address: formattedPrimary || suggestion.display_name.split(',')[0],
+              short_name: formattedSecondary,
               display_name: suggestion.display_name
             };
           })
           .sort((a, b) => {
-            // Prioritize exact matches and house numbers
+            // Enhanced scoring system
+            const searchLower = searchTerm.toLowerCase();
+            
+            // Exact match bonus
+            const aExactMatch = a.formatted_address?.toLowerCase().includes(searchLower) ? 5 : 0;
+            const bExactMatch = b.formatted_address?.toLowerCase().includes(searchLower) ? 5 : 0;
+            
+            // House number bonus
             const aHasHouseNumber = a.address?.house_number ? 3 : 0;
             const bHasHouseNumber = b.address?.house_number ? 3 : 0;
             
-            const aExactMatch = a.formatted_address?.toLowerCase().includes(searchTerm.toLowerCase()) ? 2 : 0;
-            const bExactMatch = b.formatted_address?.toLowerCase().includes(searchTerm.toLowerCase()) ? 2 : 0;
+            // Starts with bonus
+            const aStartsWith = a.formatted_address?.toLowerCase().startsWith(searchLower) ? 2 : 0;
+            const bStartsWith = b.formatted_address?.toLowerCase().startsWith(searchLower) ? 2 : 0;
             
-            const aScore = aHasHouseNumber + aExactMatch + (a.importance || 0);
-            const bScore = bHasHouseNumber + bExactMatch + (b.importance || 0);
+            // City match bonus
+            const aCityMatch = a.short_name?.toLowerCase().includes(searchLower) ? 1 : 0;
+            const bCityMatch = b.short_name?.toLowerCase().includes(searchLower) ? 1 : 0;
+            
+            const aScore = aExactMatch + aHasHouseNumber + aStartsWith + aCityMatch + (a.importance || 0);
+            const bScore = bExactMatch + bHasHouseNumber + bStartsWith + bCityMatch + (b.importance || 0);
             
             return bScore - aScore;
           })
-          .slice(0, 5);
+          .slice(0, 6);
         
+        console.log('Formatted suggestions:', formattedSuggestions);
         setSuggestions(formattedSuggestions);
         setSelectedIndex(-1);
+        
+        if (formattedSuggestions.length === 0) {
+          console.log('No suggestions found for:', searchTerm);
+        }
+      } else {
+        console.error('Nominatim API error:', response.status, response.statusText);
+        setSuggestions([]);
       }
     } catch (error) {
       console.error('Address search error:', error);
@@ -126,7 +187,7 @@ const AddressInput: React.FC<AddressInputProps> = ({
     }
   }, []);
 
-  // Debounced search (Google Maps style - 300ms delay)
+  // Debounced search with shorter delay for better UX
   const debouncedSearch = useCallback((searchTerm: string) => {
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
@@ -134,11 +195,12 @@ const AddressInput: React.FC<AddressInputProps> = ({
 
     debounceTimeoutRef.current = setTimeout(() => {
       searchAddresses(searchTerm);
-    }, 300);
+    }, 200); // Faster response
   }, [searchAddresses]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
+    console.log('Input changed to:', newValue);
     onChange(newValue);
     
     if (newValue.trim()) {
@@ -150,6 +212,7 @@ const AddressInput: React.FC<AddressInputProps> = ({
   };
 
   const handleInputFocus = () => {
+    console.log('Input focused, value:', value, 'suggestions:', suggestions.length);
     if (value.trim() && suggestions.length > 0) {
       setShowSuggestions(true);
     } else if (!value.trim() && recentSearches.length > 0) {
@@ -205,6 +268,8 @@ const AddressInput: React.FC<AddressInputProps> = ({
   };
 
   const handleSuggestionClick = (suggestion: AddressSuggestion) => {
+    console.log('Suggestion clicked:', suggestion);
+    
     const coordinates = {
       lat: parseFloat(suggestion.lat),
       lng: parseFloat(suggestion.lon)
@@ -229,6 +294,7 @@ const AddressInput: React.FC<AddressInputProps> = ({
   };
 
   const handleRecentSearchClick = (recentAddress: string) => {
+    console.log('Recent search clicked:', recentAddress);
     onChange(recentAddress);
     setShowSuggestions(false);
     setSelectedIndex(-1);
@@ -385,9 +451,11 @@ const AddressInput: React.FC<AddressInputProps> = ({
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           onFocus={handleInputFocus}
-          className="pr-20"
+          className="pr-20 pl-10"
           autoComplete="off"
         />
+        
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
         
         <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex space-x-1">
           {value && (
@@ -416,7 +484,7 @@ const AddressInput: React.FC<AddressInputProps> = ({
         </div>
       </div>
 
-      {/* Loading indicator */}
+      {/* Enhanced Loading indicator */}
       {isLoading && (
         <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg mt-1 p-3 z-50">
           <div className="flex items-center space-x-2">
@@ -436,7 +504,7 @@ const AddressInput: React.FC<AddressInputProps> = ({
         </div>
       )}
 
-      {/* Google Maps style suggestions dropdown */}
+      {/* Enhanced suggestions dropdown */}
       {showSuggestions && (showRecentSearches || suggestions.length > 0) && (
         <div 
           ref={suggestionsRef}
@@ -495,9 +563,11 @@ const AddressInput: React.FC<AddressInputProps> = ({
                         <div className="font-medium text-gray-900 truncate">
                           {suggestion.formatted_address}
                         </div>
-                        <div className="text-sm text-gray-500 truncate">
-                          {suggestion.short_name}
-                        </div>
+                        {suggestion.short_name && (
+                          <div className="text-sm text-gray-500 truncate">
+                            {suggestion.short_name}
+                          </div>
+                        )}
                         {suggestion.address?.house_number && (
                           <div className="text-xs text-green-600 mt-1 flex items-center">
                             <span className="w-1 h-1 bg-green-500 rounded-full mr-1"></span>
@@ -510,6 +580,18 @@ const AddressInput: React.FC<AddressInputProps> = ({
                 );
               })}
             </>
+          )}
+
+          {/* No results message */}
+          {value.trim() && suggestions.length === 0 && !isLoading && (
+            <div className="px-4 py-6 text-center">
+              <div className="text-gray-500 text-sm">
+                Keine Adressen gefunden für "{value}"
+              </div>
+              <div className="text-xs text-gray-400 mt-1">
+                Versuchen Sie eine andere Schreibweise oder verwenden Sie den GPS-Button
+              </div>
+            </div>
           )}
         </div>
       )}
