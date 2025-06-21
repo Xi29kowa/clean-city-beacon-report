@@ -95,6 +95,7 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
       console.log('✏️ Manual waste bin ID change:', value);
       setWasteBinId(value);
       if (onWasteBinIdChange) {
+        console.log('📤 Calling onWasteBinIdChange from manual input with:', value);
         onWasteBinIdChange(value);
       }
     }

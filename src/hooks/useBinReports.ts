@@ -50,7 +50,7 @@ export const useBinReports = () => {
         }
       }
 
-      // Prepare data for insertion
+      // Prepare data for insertion - ensure waste_bin_id is properly included
       const insertData = {
         location: reportData.location.trim(),
         issue_type: reportData.issue_type,
@@ -59,10 +59,10 @@ export const useBinReports = () => {
         partner_municipality: reportData.partner_municipality || null,
         user_id: user.id,
         status: 'in_progress',
-        waste_bin_id: reportData.waste_bin_id || null
+        waste_bin_id: reportData.waste_bin_id || null // Make sure this is included
       };
 
-      console.log('Inserting report data:', insertData);
+      console.log('Inserting report data with waste_bin_id:', insertData);
 
       // Insert the bin report
       const { data, error } = await supabase
@@ -82,7 +82,7 @@ export const useBinReports = () => {
         return null;
       }
 
-      console.log('Report submitted successfully:', data);
+      console.log('Report submitted successfully with data:', data);
       return data.id;
     } catch (error) {
       console.error('Error submitting report:', error);
