@@ -11,6 +11,20 @@ interface EnhancedLocationPickerProps {
   onWasteBinSelect?: (binId: string, location: string) => void;
 }
 
+interface AddressSuggestion {
+  display_name: string;
+  lat: string;
+  lon: string;
+}
+
+interface WasteBin {
+  id: string;
+  location: string;
+  lat: number;
+  lng: number;
+  fillLevel: string;
+}
+
 // Partner municipalities with their approximate boundaries
 const partnerMunicipalities = [
   { 
@@ -46,7 +60,7 @@ const partnerMunicipalities = [
 ];
 
 // Mock waste bin data for demonstration
-const wasteBins = [
+const wasteBins: WasteBin[] = [
   { id: 'bin_1', location: 'Lange Gasse 20', lat: 49.4521, lng: 11.0767, fillLevel: 'high' },
   { id: 'bin_2', location: 'Hauptmarkt 18', lat: 49.4545, lng: 11.0778, fillLevel: 'medium' },
   { id: 'bin_3', location: 'Königstraße 5', lat: 49.4533, lng: 11.0785, fillLevel: 'low' },
@@ -61,9 +75,13 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
   onWasteBinSelect
 }) => {
   const [isGettingLocation, setIsGettingLocation] = useState(false);
-  const [selectedWasteBin, setSelectedWasteBin] = useState<{ id: string; location: string } | null>(null);
+  const [selectedWasteBin, setSelectedWasteBin] = useState<WasteBin | null>(null);
+  const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const mapIframeRef = useRef<HTMLIFrameElement>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
 
   // Check if coordinates are in partner municipality
   const checkPartnerMunicipality = (lat: number, lng: number) => {
@@ -81,16 +99,74 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
     return null;
   };
 
+  // Fetch address suggestions from Nominatim
+  const fetchAddressSuggestions = async (query: string) => {
+    if (query.length < 3) {
+      setAddressSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      // Focus on German addresses with better parameters
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=8&countrycodes=de&addressdetails=1&bounded=1&viewbox=10.9,49.6,11.2,49.3`
+      );
+      const data = await response.json();
+      
+      if (data && Array.isArray(data)) {
+        setAddressSuggestions(data);
+        setShowSuggestions(true);
+      }
+    } catch (error) {
+      console.error('Error fetching address suggestions:', error);
+      setAddressSuggestions([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Handle address input changes
+  const handleAddressInput = (inputValue: string) => {
+    onChange(inputValue);
+    
+    // Debounce the API calls
+    const timeoutId = setTimeout(() => {
+      fetchAddressSuggestions(inputValue);
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  };
+
+  // Handle suggestion selection
+  const handleSuggestionSelect = async (suggestion: AddressSuggestion) => {
+    const lat = parseFloat(suggestion.lat);
+    const lng = parseFloat(suggestion.lon);
+    
+    onChange(suggestion.display_name, { lat, lng });
+    setShowSuggestions(false);
+    setAddressSuggestions([]);
+    
+    // Check municipality
+    const municipality = checkPartnerMunicipality(lat, lng);
+    onPartnerMunicipalityChange(municipality);
+  };
+
   // Handle waste bin selection from map
   useEffect(() => {
     const handleMapMessage = (event: MessageEvent) => {
       if (event.origin !== 'https://routenplanung.vercel.app') return;
       
       if (event.data.type === 'wasteBinClick') {
-        const { binId, location } = event.data;
-        setSelectedWasteBin({ id: binId, location });
-        if (onWasteBinSelect) {
-          onWasteBinSelect(binId, location);
+        const { binId } = event.data;
+        const selectedBin = wasteBins.find(bin => bin.id === binId);
+        
+        if (selectedBin) {
+          setSelectedWasteBin(selectedBin);
+          if (onWasteBinSelect) {
+            onWasteBinSelect(selectedBin.id, selectedBin.location);
+          }
         }
       }
     };
@@ -98,6 +174,22 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
     window.addEventListener('message', handleMapMessage);
     return () => window.removeEventListener('message', handleMapMessage);
   }, [onWasteBinSelect]);
+
+  // Close suggestions when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        suggestionsRef.current && 
+        !suggestionsRef.current.contains(event.target as Node) &&
+        !inputRef.current?.contains(event.target as Node)
+      ) {
+        setShowSuggestions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Get current location
   const getCurrentLocation = () => {
@@ -113,7 +205,6 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
         const { latitude, longitude } = position.coords;
         
         try {
-          // Reverse geocoding to get address
           const response = await fetch(
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`
           );
@@ -121,7 +212,6 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
           
           let address = '';
           if (data.display_name) {
-            // Extract relevant parts of the address
             const parts = data.display_name.split(',');
             address = parts.slice(0, 3).join(', ').trim();
           } else {
@@ -130,7 +220,6 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
           
           onChange(address, { lat: latitude, lng: longitude });
           
-          // Check if location is in partner municipality
           const municipality = checkPartnerMunicipality(latitude, longitude);
           onPartnerMunicipalityChange(municipality);
           
@@ -172,36 +261,6 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
     );
   };
 
-  // Handle address input changes and check municipality
-  const handleAddressChange = async (address: string) => {
-    onChange(address);
-    
-    if (address.length > 10) {
-      try {
-        // Forward geocoding to get coordinates
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&addressdetails=1`
-        );
-        const data = await response.json();
-        
-        if (data && data.length > 0) {
-          const lat = parseFloat(data[0].lat);
-          const lng = parseFloat(data[0].lon);
-          
-          const municipality = checkPartnerMunicipality(lat, lng);
-          onPartnerMunicipalityChange(municipality);
-        } else {
-          onPartnerMunicipalityChange(null);
-        }
-      } catch (error) {
-        console.error('Geocoding error:', error);
-        onPartnerMunicipalityChange(null);
-      }
-    } else {
-      onPartnerMunicipalityChange(null);
-    }
-  };
-
   // Handle waste bin deselection
   const handleDeselectWasteBin = () => {
     setSelectedWasteBin(null);
@@ -212,21 +271,58 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
 
   return (
     <div className="space-y-4">
-      {/* Address Input */}
-      <div>
+      {/* Address Input with Autocomplete */}
+      <div className="relative">
         <label className="block text-sm font-medium text-gray-700 mb-2">
           📍 Standort *
         </label>
         <div className="flex gap-2">
-          <Input
-            ref={inputRef}
-            type="text"
-            value={value}
-            onChange={(e) => handleAddressChange(e.target.value)}
-            placeholder="Geben Sie eine Adresse ein..."
-            className="flex-1"
-            required
-          />
+          <div className="flex-1 relative">
+            <Input
+              ref={inputRef}
+              type="text"
+              value={value}
+              onChange={(e) => handleAddressInput(e.target.value)}
+              placeholder="Geben Sie eine Adresse ein..."
+              className="w-full"
+              required
+            />
+            
+            {/* Address Suggestions Dropdown */}
+            {showSuggestions && (
+              <div 
+                ref={suggestionsRef}
+                className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg max-h-64 overflow-y-auto z-50 mt-1"
+              >
+                {isSearching ? (
+                  <div className="p-3 text-gray-500 text-center">
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mx-auto mb-2"></div>
+                    Suche läuft...
+                  </div>
+                ) : addressSuggestions.length > 0 ? (
+                  addressSuggestions.map((suggestion, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleSuggestionSelect(suggestion)}
+                      className="w-full text-left p-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 focus:bg-blue-50 focus:outline-none"
+                    >
+                      <div className="flex items-start gap-2">
+                        <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                        <span className="text-sm text-gray-700 line-clamp-2">
+                          {suggestion.display_name}
+                        </span>
+                      </div>
+                    </button>
+                  ))
+                ) : value.length >= 3 ? (
+                  <div className="p-3 text-gray-500 text-center text-sm">
+                    Keine Adressen gefunden
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </div>
+          
           <Button
             type="button"
             variant="outline"
@@ -249,13 +345,21 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
 
       {/* Selected Waste Bin Display */}
       {selectedWasteBin && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-center justify-between">
             <div>
               <label className="block text-sm font-medium text-blue-800 mb-1">
                 🗑️ Ausgewählter Mülleimer
               </label>
-              <p className="text-sm text-blue-700">{selectedWasteBin.location}</p>
+              <div className="space-y-1">
+                <p className="text-sm text-blue-700 font-medium">{selectedWasteBin.location}</p>
+                <p className="text-xs text-blue-600">
+                  ID: {selectedWasteBin.id} • Füllstand: {
+                    selectedWasteBin.fillLevel === 'high' ? '🔴 Hoch' :
+                    selectedWasteBin.fillLevel === 'medium' ? '🟡 Mittel' : '🟢 Niedrig'
+                  }
+                </p>
+              </div>
             </div>
             <Button
               type="button"

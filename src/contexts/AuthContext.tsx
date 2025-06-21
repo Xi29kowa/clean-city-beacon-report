@@ -32,101 +32,50 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
+// Store user session in localStorage
+const storeUserSession = (user: AuthUser) => {
+  localStorage.setItem('cleancity_user', JSON.stringify(user));
+  localStorage.setItem('cleancity_session_timestamp', Date.now().toString());
+};
+
+// Retrieve user session from localStorage
+const getUserSession = (): AuthUser | null => {
+  try {
+    const storedUser = localStorage.getItem('cleancity_user');
+    const timestamp = localStorage.getItem('cleancity_session_timestamp');
+    
+    if (storedUser && timestamp) {
+      return JSON.parse(storedUser);
+    }
+  } catch (error) {
+    console.error('Error retrieving user session:', error);
+  }
+  return null;
+};
+
+// Clear user session from localStorage
+const clearUserSession = () => {
+  localStorage.removeItem('cleancity_user');
+  localStorage.removeItem('cleancity_session_timestamp');
+};
+
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Set up auth state listener and auto-restore session
+  // Initialize auth state from localStorage on mount
   useEffect(() => {
-    console.log('🚀 Setting up auth state listener with session restoration...');
-    console.log('Environment:', {
-      origin: typeof window !== 'undefined' ? window.location.origin : 'SSR',
-      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'SSR'
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('🔄 Auth state changed:', event, session?.user?.email);
-        
-        setSession(session);
-        
-        if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
-          // Quick profile fetch with short timeout
-          try {
-            const profileTimeout = new Promise((_, reject) =>
-              setTimeout(() => reject(new Error('Profile fetch timeout')), 2000)
-            );
-
-            const profileFetch = supabase
-              .from('profiles')
-              .select('username')
-              .eq('id', session.user.id)
-              .single();
-
-            const result = await Promise.race([profileFetch, profileTimeout]) as any;
-
-            if (result?.error) {
-              console.log('⚠️ Using fallback user data');
-              setUser({
-                id: session.user.id,
-                username: session.user.email?.split('@')[0] || 'User',
-                email: session.user.email || ''
-              });
-            } else {
-              setUser({
-                id: session.user.id,
-                username: result?.data?.username || session.user.email?.split('@')[0] || 'User',
-                email: session.user.email || ''
-              });
-            }
-          } catch (error) {
-            console.log('⚠️ Profile fetch failed, using fallback');
-            setUser({
-              id: session.user.id,
-              username: session.user.email?.split('@')[0] || 'User',
-              email: session.user.email || ''
-            });
-          }
-        } else {
-          setUser(null);
-        }
-        
-        setLoading(false);
-      }
-    );
-
-    // Auto-restore existing session on page load
-    const checkSession = async () => {
-      try {
-        console.log('🔍 Checking for existing session...');
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error('❌ Session check error:', error);
-          setLoading(false);
-          return;
-        }
-
-        if (session) {
-          console.log('✅ Found existing session, restoring user');
-          setSession(session);
-          // User will be set by the auth state change event
-        } else {
-          console.log('ℹ️ No existing session found');
-          setLoading(false);
-        }
-      } catch (error) {
-        console.error('❌ Session restoration error:', error);
-        setLoading(false);
-      }
-    };
-
-    checkSession();
-
-    return () => {
-      subscription.unsubscribe();
-    };
+    console.log('🚀 Initializing auth state from localStorage...');
+    
+    const storedUser = getUserSession();
+    if (storedUser) {
+      console.log('✅ Found stored user session, restoring:', storedUser.email);
+      setUser(storedUser);
+    } else {
+      console.log('ℹ️ No stored user session found');
+    }
+    
+    setLoading(false);
   }, []);
 
   const register = async (username: string, email: string, password: string): Promise<{ success: boolean; error?: string }> => {
@@ -137,7 +86,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const redirectUrl = typeof window !== 'undefined' ? `${window.location.origin}/` : undefined;
       console.log('Using redirect URL:', redirectUrl);
 
-      // Shorter timeout for registration - 8 seconds
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Registration timeout - please try again')), 8000)
       );
@@ -185,7 +133,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           };
         }
         
-        // User is automatically logged in
+        // User is automatically logged in - store session
+        const newUser: AuthUser = {
+          id: result.data.user.id,
+          username: username,
+          email: email
+        };
+        
+        setUser(newUser);
+        storeUserSession(newUser);
         console.log('🎉 User registered and logged in automatically');
         return { success: true };
       }
@@ -207,15 +163,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     console.log('🔑 Starting login for:', email);
-    console.log('Environment check:', {
-      origin: typeof window !== 'undefined' ? window.location.origin : 'SSR',
-      localStorage: typeof localStorage !== 'undefined',
-      navigator: typeof navigator !== 'undefined'
-    });
     setLoading(true);
 
     try {
-      // Longer timeout for production environments - 10 seconds
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Login timeout - please try again')), 10000)
       );
@@ -252,7 +202,36 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       if (result?.data?.user) {
         console.log('✅ Login successful:', result.data.user.email);
-        // Session will be set automatically by onAuthStateChange
+        
+        // Fetch user profile and store session
+        try {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('username')
+            .eq('id', result.data.user.id)
+            .single();
+
+          const loggedInUser: AuthUser = {
+            id: result.data.user.id,
+            username: profileData?.username || result.data.user.email?.split('@')[0] || 'User',
+            email: result.data.user.email || ''
+          };
+
+          setUser(loggedInUser);
+          storeUserSession(loggedInUser);
+          console.log('✅ User session stored successfully');
+        } catch (profileError) {
+          console.log('⚠️ Profile fetch failed, using fallback data');
+          const loggedInUser: AuthUser = {
+            id: result.data.user.id,
+            username: result.data.user.email?.split('@')[0] || 'User',
+            email: result.data.user.email || ''
+          };
+
+          setUser(loggedInUser);
+          storeUserSession(loggedInUser);
+        }
+
         return { success: true };
       }
 
@@ -275,18 +254,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     console.log('🚪 Logging out user...');
     
     try {
-      // Sign out from Supabase (this will also clear localStorage automatically)
       await supabase.auth.signOut();
       console.log('✅ Supabase logout completed');
     } catch (error) {
       console.error('❌ Supabase logout error:', error);
     }
     
-    // Clear state immediately
+    // Clear state and localStorage
     setUser(null);
-    setSession(null);
+    clearUserSession();
     
-    console.log('✅ Logout completed');
+    console.log('✅ Logout completed and session cleared');
   };
 
   const value: AuthContextType = {
