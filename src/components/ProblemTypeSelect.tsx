@@ -15,12 +15,12 @@ interface ProblemTypeSelectProps {
 
 const ProblemTypeSelect: React.FC<ProblemTypeSelectProps> = ({ value, onValueChange }) => {
   const problemTypes = [
-    { value: 'overfull', label: 'Überfüllt' },
-    { value: 'damaged', label: 'Beschädigt' },
-    { value: 'missing', label: 'Fehlt' },
-    { value: 'dirty', label: 'Verschmutzt' },
-    { value: 'blocked', label: 'Blockiert' },
-    { value: 'other', label: 'Sonstiges' }
+    { value: 'overfull', label: '🗑️ Überfüllt' },
+    { value: 'damaged', label: '🔨 Beschädigt' },
+    { value: 'missing', label: '❌ Fehlt' },
+    { value: 'dirty', label: '🧹 Verschmutzt' },
+    { value: 'blocked', label: '🚧 Blockiert' },
+    { value: 'other', label: '❓ Sonstiges' }
   ];
 
   return (
