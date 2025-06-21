@@ -68,6 +68,63 @@ const Index = () => {
     { value: 'fuerth', label: 'Fürth' }
   ];
 
+  // Missing handler functions
+  const handleLogout = () => {
+    logout();
+    toast({
+      title: "Erfolgreich abgemeldet",
+      description: "Sie wurden erfolgreich abgemeldet.",
+    });
+  };
+
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'CleanCity',
+          text: 'Melden Sie problematische Mülleimer in Ihrer Stadt!',
+          url: window.location.href,
+        });
+      } catch (error) {
+        // User cancelled or error occurred
+      }
+    } else {
+      // Fallback for browsers that don't support Web Share API
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+        toast({
+          title: "Link kopiert",
+          description: "Der Link wurde in die Zwischenablage kopiert.",
+        });
+      } catch (error) {
+        toast({
+          title: "Fehler",
+          description: "Link konnte nicht kopiert werden.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const handleNotificationRequest = async (email: string) => {
+    if (!currentReportId) return false;
+    
+    const success = await submitNotificationRequest(email, currentReportId);
+    if (success) {
+      toast({
+        title: "Benachrichtigung aktiviert",
+        description: "Sie werden informiert, wenn der Mülleimer geleert wurde.",
+      });
+    } else {
+      toast({
+        title: "Fehler",
+        description: "Benachrichtigung konnte nicht aktiviert werden.",
+        variant: "destructive",
+      });
+    }
+    return success;
+  };
+
   // Setup iframe communication for map interaction
   useEffect(() => {
     const handleMapMessage = (event: MessageEvent) => {
@@ -227,6 +284,461 @@ const Index = () => {
       });
     }
   };
+
+  // Missing render functions
+  const renderHome = () => (
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50">
+      {renderHeader()}
+      
+      <div className="container mx-auto px-4 py-16">
+        <div className="text-center mb-16">
+          <h2 className="text-4xl font-bold text-green-800 mb-4">
+            Saubere Stadt, gemeinsam!
+          </h2>
+          <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+            Melden Sie überfüllte oder beschädigte Mülleimer direkt an die Stadtreinigung. 
+            Schnell, einfach und effektiv.
+          </p>
+          <Button 
+            onClick={() => setCurrentView('report')}
+            className="bg-green-500 hover:bg-green-600 text-white px-8 py-4 text-lg rounded-full shadow-lg transform transition hover:scale-105"
+          >
+            <MapPin className="w-6 h-6 mr-2" />
+            Jetzt Mülleimer melden
+          </Button>
+        </div>
+
+        {/* Statistics */}
+        {!statsLoading && statistics && (
+          <div className="grid md:grid-cols-3 gap-6 mb-16">
+            <Card className="text-center bg-white shadow-lg">
+              <CardContent className="p-6">
+                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle className="w-6 h-6 text-green-600" />
+                </div>
+                <h3 className="text-2xl font-bold text-green-800 mb-2">{statistics.total_reports}</h3>
+                <p className="text-gray-600">Gemeldete Mülleimer</p>
+              </CardContent>
+            </Card>
+            
+            <Card className="text-center bg-white shadow-lg">
+              <CardContent className="p-6">
+                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Database className="w-6 h-6 text-blue-600" />
+                </div>
+                <h3 className="text-2xl font-bold text-blue-800 mb-2">{statistics.in_progress_reports}</h3>
+                <p className="text-gray-600">In Bearbeitung</p>
+              </CardContent>
+            </Card>
+            
+            <Card className="text-center bg-white shadow-lg">
+              <CardContent className="p-6">
+                <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Monitor className="w-6 h-6 text-orange-600" />
+                </div>
+                <h3 className="text-2xl font-bold text-orange-800 mb-2">{statistics.processed_reports}</h3>
+                <p className="text-gray-600">Erledigt</p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Features */}
+        <div className="grid md:grid-cols-3 gap-8">
+          <Card className="bg-white shadow-lg">
+            <CardContent className="p-6">
+              <Camera className="w-12 h-12 text-green-600 mb-4" />
+              <h3 className="text-xl font-semibold mb-2">Foto hochladen</h3>
+              <p className="text-gray-600">
+                Machen Sie ein Foto des Problems und laden Sie es direkt hoch. 
+                Bilder helfen bei der schnellen Bearbeitung.
+              </p>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-white shadow-lg">
+            <CardContent className="p-6">
+              <MapPin className="w-12 h-12 text-green-600 mb-4" />
+              <h3 className="text-xl font-semibold mb-2">GPS-Ortung</h3>
+              <p className="text-gray-600">
+                Ihre Position wird automatisch erkannt oder Sie können eine 
+                Adresse manuell eingeben.
+              </p>
+            </CardContent>
+          </Card>
+          
+          <Card className="bg-white shadow-lg">
+            <CardContent className="p-6">
+              <Leaf className="w-12 h-12 text-green-600 mb-4" />
+              <h3 className="text-xl font-semibold mb-2">Direkte Weiterleitung</h3>
+              <p className="text-gray-600">
+                Ihre Meldung geht direkt an die zuständige Abteilung der 
+                Stadtreinigung.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderReportForm = () => (
+    <div className="min-h-screen bg-gray-50">
+      {renderHeader()}
+      
+      <div className="container mx-auto px-4 py-8 max-w-2xl">
+        <Card className="bg-white shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-center text-green-800">
+              🗑️ Mülleimer melden
+            </CardTitle>
+            <p className="text-center text-gray-600">
+              Helfen Sie dabei, unsere Stadt sauber zu halten
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <EnhancedLocationPicker
+              value={formData.location}
+              onChange={(location, coords) => {
+                setFormData(prev => ({ ...prev, location }));
+                setLocationCoordinates(coords || null);
+              }}
+              onPartnerMunicipalityChange={(municipality) => {
+                setFormData(prev => ({ ...prev, partnerMunicipality: municipality }));
+              }}
+              onWasteBinSelect={(binId, location) => {
+                setFormData(prev => ({ 
+                  ...prev, 
+                  wasteBinId: binId,
+                  location: location || prev.location
+                }));
+              }}
+              coordinates={locationCoordinates}
+            />
+
+            {/* Issue Type Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                ⚠️ Problem-Art <span className="text-red-500">*</span>
+              </label>
+              <Select value={formData.issueType} onValueChange={(value) => setFormData(prev => ({ ...prev, issueType: value }))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Problem auswählen" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="overfilled">Überfüllt</SelectItem>
+                  <SelectItem value="broken">Beschädigt</SelectItem>
+                  <SelectItem value="vandalized">Vandalismus</SelectItem>
+                  <SelectItem value="smelly">Stinkt</SelectItem>
+                  <SelectItem value="missing">Fehlt komplett</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Photo Upload */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                📷 Foto (optional)
+              </label>
+              <Input
+                type="file"
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    setFormData(prev => ({ ...prev, photo: file }));
+                    toast({
+                      title: "Foto hochgeladen!",
+                      description: "Ihr Bild wurde zur Meldung hinzugefügt.",
+                    });
+                  }
+                }}
+                className="file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
+              />
+              {formData.photo && (
+                <p className="text-xs text-green-600 mt-1">Foto hochgeladen: {formData.photo.name}</p>
+              )}
+            </div>
+
+            {/* Comments */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                💬 Zusätzliche Informationen (optional)
+              </label>
+              <Textarea
+                value={formData.comment}
+                onChange={(e) => setFormData(prev => ({ ...prev, comment: e.target.value }))}
+                placeholder="Beschreiben Sie das Problem genauer..."
+                rows={3}
+              />
+            </div>
+
+            {/* Submit Button */}
+            <Button
+              onClick={async () => {
+                if (!formData.location || !formData.issueType) {
+                  toast({
+                    title: "Fehlende Angaben",
+                    description: "Bitte füllen Sie alle Pflichtfelder aus.",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+
+                const reportId = await submitReport({
+                  location: formData.location,
+                  issue_type: formData.issueType,
+                  comment: formData.comment?.trim() || null,
+                  photo: formData.photo,
+                  partner_municipality: formData.partnerMunicipality
+                });
+
+                if (reportId) {
+                  setCurrentReportId(reportId);
+                  setCurrentView('confirmation');
+                  setFormData({
+                    location: '',
+                    photo: null,
+                    issueType: '',
+                    comment: '',
+                    partnerMunicipality: '',
+                    wasteBinId: ''
+                  });
+                  setLocationCoordinates(null);
+                }
+              }}
+              disabled={!formData.location || !formData.issueType || isSubmitting}
+              className={`w-full py-3 text-lg font-semibold ${
+                formData.location && formData.issueType
+                  ? "bg-green-500 hover:bg-green-600 text-white"
+                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
+              }`}
+            >
+              {isSubmitting ? (
+                <div className="flex items-center">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                  Wird gesendet...
+                </div>
+              ) : (
+                'Mülleimer melden'
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+
+  const renderProducts = () => (
+    <div className="min-h-screen bg-gray-50">
+      {renderHeader()}
+      
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <h2 className="text-3xl font-bold text-green-800 mb-8 text-center">Unsere Produkte & Services</h2>
+        
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {/* CleanCity Mobile App */}
+          <Card className="bg-white shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center mr-3">
+                  <Camera className="w-5 h-5 text-green-600" />
+                </div>
+                CleanCity Mobile
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-gray-600">
+                Die mobile App für iOS und Android. Melden Sie Mülleimer unterwegs mit GPS-Ortung und Foto-Upload.
+              </p>
+              <div className="space-y-2">
+                <h4 className="font-semibold">Features:</h4>
+                <ul className="text-sm text-gray-600 space-y-1">
+                  <li>• GPS-basierte Ortung</li>
+                  <li>• Offline-Modus verfügbar</li>
+                  <li>• Push-Benachrichtigungen</li>
+                  <li>• Mehrsprachig</li>
+                </ul>
+              </div>
+              <Button variant="outline" className="w-full" disabled>
+                Bald verfügbar
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Smart Waste Sensors */}
+          <Card className="bg-white shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                  <Wifi className="w-5 h-5 text-blue-600" />
+                </div>
+                Smart Sensors
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-gray-600">
+                IoT-Sensoren für Mülleimer, die automatisch den Füllstand messen und bei Überfüllung Alarm schlagen.
+              </p>
+              <div className="space-y-2">
+                <h4 className="font-semibold">Technologie:</h4>
+                <ul className="text-sm text-gray-600 space-y-1">
+                  <li>• Ultraschall-Sensoren</li>
+                  <li>• LoRaWAN Übertragung</li>
+                  <li>• 2 Jahre Batterielaufzeit</li>
+                  <li>• Wetterfest (IP67)</li>
+                </ul>
+              </div>
+              <Button variant="outline" className="w-full">
+                Mehr erfahren
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* City Dashboard */}
+          <Card className="bg-white shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center mr-3">
+                  <Monitor className="w-5 h-5 text-purple-600" />
+                </div>
+                City Dashboard
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-gray-600">
+                Zentrale Übersicht für Stadtverwaltungen zur Überwachung aller Mülleimer und Meldungen in Echtzeit.
+              </p>
+              <div className="space-y-2">
+                <h4 className="font-semibold">Funktionen:</h4>
+                <ul className="text-sm text-gray-600 space-y-1">
+                  <li>• Echtzeit-Karte</li>
+                  <li>• Priorisierung von Meldungen</li>
+                  <li>• Automatische Routenplanung</li>
+                  <li>• Statistiken & Reports</li>
+                </ul>
+              </div>
+              <Button variant="outline" className="w-full">
+                Demo anfordern
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Consultation Services */}
+          <Card className="bg-white shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center mr-3">
+                  <Shield className="w-5 h-5 text-orange-600" />
+                </div>
+                Beratung
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-gray-600">
+                Professionelle Beratung für Städte und Gemeinden zur Optimierung der Abfallwirtschaft.
+              </p>
+              <div className="space-y-2">
+                <h4 className="font-semibold">Services:</h4>
+                <ul className="text-sm text-gray-600 space-y-1">
+                  <li>• Standort-Analyse</li>
+                  <li>• Prozess-Optimierung</li>
+                  <li>• Schulungen</li>
+                  <li>• Support & Wartung</li>
+                </ul>
+              </div>
+              <Button variant="outline" className="w-full">
+                Beratung anfragen
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* API & Integration */}
+          <Card className="bg-white shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <div className="w-8 h-8 bg-indigo-100 rounded-lg flex items-center justify-center mr-3">
+                  <Database className="w-5 h-5 text-indigo-600" />
+                </div>
+                API & Integration
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-gray-600">
+                Entwickler-freundliche API zur Integration in bestehende Stadtwerke- und Verwaltungssysteme.
+              </p>
+              <div className="space-y-2">
+                <h4 className="font-semibold">Features:</h4>
+                <ul className="text-sm text-gray-600 space-y-1">
+                  <li>• REST & GraphQL API</li>
+                  <li>• Webhook-Support</li>
+                  <li>• Umfangreiche Dokumentation</li>
+                  <li>• SDK für gängige Sprachen</li>
+                </ul>
+              </div>
+              <Button variant="outline" className="w-full">
+                API Docs
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* White Label Solution */}
+          <Card className="bg-white shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center mr-3">
+                  <Leaf className="w-5 h-5 text-green-600" />
+                </div>
+                White Label
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-gray-600">
+                Vollständig anpassbare Lösung mit Ihrem Branding für Städte, die eine eigene App wünschen.
+              </p>
+              <div className="space-y-2">
+                <h4 className="font-semibold">Anpassungen:</h4>
+                <ul className="text-sm text-gray-600 space-y-1">
+                  <li>• Eigenes Logo & Design</li>
+                  <li>• Individuelle Funktionen</li>
+                  <li>• Eigene Domain</li>
+                  <li>• Vollständige Kontrolle</li>
+                </ul>
+              </div>
+              <Button variant="outline" className="w-full">
+                Angebot einholen
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Call to Action */}
+        <div className="mt-16 text-center">
+          <Card className="bg-gradient-to-r from-green-500 to-blue-600 text-white">
+            <CardContent className="p-8">
+              <h3 className="text-2xl font-bold mb-4">
+                Interessiert an unseren Lösungen?
+              </h3>
+              <p className="text-lg mb-6 opacity-90">
+                Kontaktieren Sie uns für eine unverbindliche Beratung und erfahren Sie, 
+                wie CleanCity Ihre Stadt sauberer machen kann.
+              </p>
+              <div className="space-x-4">
+                <Button variant="secondary" size="lg">
+                  <Phone className="w-5 h-5 mr-2" />
+                  Anrufen
+                </Button>
+                <Button variant="outline" size="lg" className="text-white border-white hover:bg-white hover:text-green-600">
+                  <Info className="w-5 h-5 mr-2" />
+                  Mehr erfahren
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
 
   const renderHeader = () => (
     <header className="bg-white shadow-sm border-b border-green-100 sticky top-0 z-50">
