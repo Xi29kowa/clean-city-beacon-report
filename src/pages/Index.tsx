@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Camera, MapPin, Leaf, CheckCircle, ArrowRight, Upload, Menu, X, Info, Shield, Phone, User, LogIn, Share2, Copy, Wifi, Battery, Zap, Database, Monitor, LogOut } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -1044,24 +1045,27 @@ const Index = () => {
             Vielen Dank!
           </h2>
           
-          <p className="text-lg text-gray-600 mb-6">
+          <p className="text-lg text-gray-600 mb-8">
             Ihre Meldung wurde erfolgreich übermittelt. Die Stadtreinigung wird schnellstmöglich reagieren.
           </p>
 
-          {/* Orange text and view reports button */}
-          <div className="mb-8">
-            <p className="text-orange-600 font-semibold text-lg mb-4">
-              Meldung jetzt ansehen
-            </p>
-            <Button 
-              onClick={() => navigate('/account')}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold mb-6"
-            >
-              Meldungen ansehen
-            </Button>
-          </div>
-
           <div className="space-y-4 mb-8">
+            <div className="bg-orange-50 p-4 rounded-lg">
+              <h3 className="font-semibold text-orange-800 mb-2">
+                📋 Meldung jetzt ansehen
+              </h3>
+              <p className="text-sm text-orange-600 mb-3">
+                Sehen Sie Ihre eingereichten Meldungen und deren Status
+              </p>
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => navigate('/account')}
+              >
+                Meldungen ansehen
+              </Button>
+            </div>
+
             <div className="bg-blue-50 p-4 rounded-lg">
               <h3 className="font-semibold text-blue-800 mb-2">
                 🔔 Benachrichtigungen erhalten?
