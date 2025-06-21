@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { LocationPickerProps, WasteBin } from '@/types/location';
 import { wasteBins } from '@/data/wasteBins';
@@ -11,6 +10,7 @@ import { Input } from '@/components/ui/input';
 interface EnhancedLocationPickerProps extends LocationPickerProps {
   coordinates?: { lat: number; lng: number } | null;
   onWasteBinIdChange?: (binId: string) => void;
+  wasteBinId?: string; // Add this prop to receive the current value from parent
 }
 
 const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
@@ -19,12 +19,19 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
   onPartnerMunicipalityChange,
   onWasteBinSelect,
   coordinates,
-  onWasteBinIdChange
+  onWasteBinIdChange,
+  wasteBinId: propWasteBinId = '' // Use prop value or default to empty string
 }) => {
   const [selectedWasteBin, setSelectedWasteBin] = useState<WasteBin | null>(null);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(coordinates || null);
-  const [wasteBinId, setWasteBinId] = useState('');
+  const [wasteBinId, setWasteBinId] = useState(propWasteBinId); // Initialize with prop value
   const [selectedPartnerMunicipality, setSelectedPartnerMunicipality] = useState<string>('');
+
+  // CRITICAL: Sync with prop value when it changes
+  useEffect(() => {
+    console.log('🔄 PROP wasteBinId changed to:', propWasteBinId);
+    setWasteBinId(propWasteBinId);
+  }, [propWasteBinId]);
 
   const handleWasteBinSelect = (binId: string) => {
     console.log('🗑️ Waste bin selected in EnhancedLocationPicker:', binId);
