@@ -5,21 +5,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useBinReports } from "@/hooks/useBinReports";
 
 interface NotificationDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (email: string) => Promise<boolean>;
+  reportId?: string | null;
 }
 
 const NotificationDialog: React.FC<NotificationDialogProps> = ({
   isOpen,
   onClose,
-  onSubmit
+  reportId
 }) => {
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const { submitNotificationRequest } = useBinReports();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,8 +35,17 @@ const NotificationDialog: React.FC<NotificationDialogProps> = ({
       return;
     }
 
+    if (!reportId) {
+      toast({
+        title: "Fehler",
+        description: "Keine Meldung gefunden.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
-    const success = await onSubmit(email);
+    const success = await submitNotificationRequest(email, reportId);
     
     if (success) {
       toast({
