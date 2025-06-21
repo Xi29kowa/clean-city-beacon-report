@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useState } from 'react';
 import { MapPin, Trash2, Loader2 } from 'lucide-react';
 import { WasteBin } from '@/types/location';
@@ -317,9 +316,6 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
             💡 Klicken Sie auf einen Mülleimer-Marker um die ID automatisch zu übernehmen.
             {isMapLoading && <span className="text-orange-600">(Lädt...)</span>}
             {!isMapLoading && isMapReady && <span className="text-green-600">(Bereit)</span>}
-          </p>
-          <p className="text-xs text-gray-500 mt-1">
-            🔍 Debug: Alle Message-Formate werden verarbeitet, schauen Sie in die Konsole für Details
           </p>
         </div>
       </div>
