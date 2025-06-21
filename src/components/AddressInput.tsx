@@ -31,97 +31,153 @@ const AddressInput: React.FC<AddressInputProps> = ({
     if (query.length < 3) return [];
 
     try {
-      // More precise search strategy using structured query
-      const searchParams = new URLSearchParams({
-        format: 'json',
-        addressdetails: '1',
-        limit: '8',
-        countrycodes: 'DE',
-        'accept-language': 'de',
-        bounded: '1',
-        viewbox: '10.8,49.2,11.3,49.7', // Expanded Nürnberg metropolitan area
-        extratags: '1',
-        namedetails: '1'
-      });
-
-      // Try structured search first for better precision
-      let searchQuery = query;
-      if (query.includes(',')) {
-        // If comma present, treat as structured input
-        searchQuery = query;
-      } else {
-        // Add city context for better results
-        searchQuery = `${query}, Nürnberg`;
-      }
-
-      searchParams.set('q', searchQuery);
-
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?${searchParams}`,
+      // Use multiple search strategies for better results
+      const searchStrategies = [
+        // Strategy 1: Exact search with Nürnberg context
         {
-          headers: {
-            'User-Agent': 'CleanCity/1.0 (https://cleancity.app)'
-          }
+          q: `${query}, Nürnberg, Deutschland`,
+          bounded: '1',
+          viewbox: '10.9,49.6,11.2,49.3' // Nürnberg area
+        },
+        // Strategy 2: Broader Germany search with high limit
+        {
+          q: query,
+          countrycodes: 'DE',
+          bounded: '0'
         }
-      );
-      
-      if (!response.ok) {
-        throw new Error('Search request failed');
+      ];
+
+      let allResults: any[] = [];
+
+      for (const strategy of searchStrategies) {
+        const searchParams = new URLSearchParams({
+          format: 'json',
+          addressdetails: '1',
+          limit: '10',
+          extratags: '1',
+          namedetails: '1',
+          'accept-language': 'de',
+          ...strategy
+        });
+
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/search?${searchParams}`,
+            {
+              headers: {
+                'User-Agent': 'CleanCity/1.0 (https://cleancity.app)'
+              }
+            }
+          );
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (Array.isArray(data)) {
+              allResults = [...allResults, ...data];
+            }
+          }
+        } catch (error) {
+          console.warn('Search strategy failed:', error);
+        }
       }
 
-      const data = await response.json();
-      
-      return data
+      // Filter and deduplicate results
+      const filteredResults = allResults
         .filter((item: any) => {
-          // More strict filtering for relevant addresses
-          const hasAddress = item.address && (
+          // Filter for address-like results
+          const hasValidAddress = item.address && (
             item.address.house_number || 
             item.address.road || 
             item.address.pedestrian ||
-            item.address.residential
+            item.address.residential ||
+            item.type === 'house'
           );
           
           const isRelevantType = [
             'house', 'building', 'address', 'residential',
-            'commercial', 'industrial', 'retail'
+            'commercial', 'retail', 'office'
           ].includes(item.type) || 
-          ['place', 'highway', 'amenity'].includes(item.class);
+          ['place', 'highway', 'amenity', 'shop'].includes(item.class);
 
-          // Prioritize results within Nürnberg area
-          const lat = parseFloat(item.lat);
-          const lon = parseFloat(item.lon);
-          const inNuernbergArea = lat >= 49.3 && lat <= 49.6 && lon >= 10.9 && lon <= 11.2;
+          // Priority for German results
+          const isGermany = item.address?.country_code === 'de';
 
-          return hasAddress && isRelevantType && inNuernbergArea;
+          return hasValidAddress && isRelevantType && isGermany;
         })
         .map((item: any) => {
-          // Create cleaner display names
-          let displayName = item.display_name;
+          // Create detailed display names
+          let displayName = '';
+          let shortName = '';
           
           if (item.address) {
             const parts = [];
+            const shortParts = [];
+            
+            // Build address components
             if (item.address.house_number && item.address.road) {
-              parts.push(`${item.address.road} ${item.address.house_number}`);
+              const streetAddress = `${item.address.road} ${item.address.house_number}`;
+              parts.push(streetAddress);
+              shortParts.push(streetAddress);
             } else if (item.address.road) {
               parts.push(item.address.road);
+              shortParts.push(item.address.road);
             }
             
-            if (item.address.suburb) parts.push(item.address.suburb);
-            if (item.address.city) parts.push(item.address.city);
-            else if (item.address.town) parts.push(item.address.town);
-            
-            if (parts.length > 0) {
-              displayName = parts.join(', ');
+            // Add postal code
+            if (item.address.postcode) {
+              parts.push(item.address.postcode);
             }
+            
+            // Add city/town
+            const city = item.address.city || item.address.town || item.address.village;
+            if (city) {
+              parts.push(city);
+              if (!shortParts.some(p => p.includes(city))) {
+                shortParts.push(city);
+              }
+            }
+            
+            // Add state for clarity
+            if (item.address.state && item.address.state !== city) {
+              parts.push(item.address.state);
+            }
+            
+            displayName = parts.join(', ');
+            shortName = shortParts.join(', ');
           }
 
           return {
-            display_name: displayName,
+            display_name: displayName || item.display_name,
+            short_name: shortName,
             lat: item.lat,
-            lon: item.lon
+            lon: item.lon,
+            address: item.address,
+            importance: item.importance || 0
           };
         })
-        .slice(0, 6); // Limit to 6 suggestions
+        // Remove duplicates based on coordinates
+        .filter((item: any, index: number, self: any[]) => {
+          return index === self.findIndex(t => 
+            Math.abs(parseFloat(t.lat) - parseFloat(item.lat)) < 0.0001 &&
+            Math.abs(parseFloat(t.lon) - parseFloat(item.lon)) < 0.0001
+          );
+        })
+        // Sort by importance and relevance
+        .sort((a: any, b: any) => {
+          // Prioritize results with house numbers
+          const aHasHouseNumber = a.address?.house_number ? 1 : 0;
+          const bHasHouseNumber = b.address?.house_number ? 1 : 0;
+          
+          if (aHasHouseNumber !== bHasHouseNumber) {
+            return bHasHouseNumber - aHasHouseNumber;
+          }
+          
+          // Then sort by importance
+          return (b.importance || 0) - (a.importance || 0);
+        })
+        .slice(0, 8); // Limit to 8 suggestions
+
+      return filteredResults;
     } catch (error) {
       console.error('Error fetching address suggestions:', error);
       return [];
@@ -156,11 +212,14 @@ const AddressInput: React.FC<AddressInputProps> = ({
     const lat = parseFloat(suggestion.lat);
     const lng = parseFloat(suggestion.lon);
     
-    onChange(suggestion.display_name, { lat, lng });
+    // Use the short name for better display, fallback to full display name
+    const addressToShow = suggestion.short_name || suggestion.display_name;
+    
+    onChange(addressToShow, { lat, lng });
     setShowSuggestions(false);
     setAddressSuggestions([]);
     
-    // Navigate map to selected location
+    // Navigate map to selected location with street-level zoom
     if (onLocationSelect) {
       onLocationSelect({ lat, lng });
     }
@@ -246,7 +305,7 @@ const AddressInput: React.FC<AddressInputProps> = ({
             type="text"
             value={value}
             onChange={(e) => handleAddressInput(e.target.value)}
-            placeholder="Geben Sie eine Adresse ein..."
+            placeholder="Straße, Hausnummer, PLZ eingeben..."
             className="w-full"
             required
           />
@@ -259,7 +318,7 @@ const AddressInput: React.FC<AddressInputProps> = ({
               {isSearching ? (
                 <div className="p-3 text-gray-500 text-center">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mx-auto mb-2"></div>
-                  Suche läuft...
+                  Adresse wird gesucht...
                 </div>
               ) : addressSuggestions.length > 0 ? (
                 addressSuggestions.map((suggestion, index) => (
@@ -270,15 +329,22 @@ const AddressInput: React.FC<AddressInputProps> = ({
                   >
                     <div className="flex items-start gap-2">
                       <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                      <span className="text-sm text-gray-700 line-clamp-2">
-                        {suggestion.display_name}
-                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm text-gray-900 font-medium">
+                          {suggestion.short_name || suggestion.display_name}
+                        </div>
+                        {suggestion.short_name && suggestion.short_name !== suggestion.display_name && (
+                          <div className="text-xs text-gray-500 truncate mt-1">
+                            {suggestion.display_name}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </button>
                 ))
               ) : value.length >= 3 ? (
                 <div className="p-3 text-gray-500 text-center text-sm">
-                  Keine Adressen gefunden
+                  Keine passenden Adressen gefunden
                 </div>
               ) : null}
             </div>
@@ -301,7 +367,7 @@ const AddressInput: React.FC<AddressInputProps> = ({
         </Button>
       </div>
       <p className="text-xs text-gray-500 mt-1">
-        Geben Sie eine genaue Adresse ein oder nutzen Sie GPS für Ihren aktuellen Standort
+        Geben Sie Straße, Hausnummer oder PLZ ein für präzise Adressvorschläge
       </p>
     </div>
   );
