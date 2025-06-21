@@ -19,27 +19,14 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
     const handleMapMessage = (event: MessageEvent) => {
       console.log('🎯 Received message from:', event.origin);
       console.log('📨 Message data:', event.data);
+      console.log('📨 Message type:', typeof event.data);
+      console.log('📨 Message keys:', Object.keys(event.data || {}));
       
-      // Accept messages from multiple possible origins, including Lovable domains
-      const allowedOrigins = [
-        'https://routenplanung.vercel.app',
-        'http://localhost:3000',
-        'http://localhost:5173',
-        'https://nbg-wastebaskets-map.vercel.app'
-      ];
-      
-      // Also allow any Lovable domain
-      const isLovableDomain = event.origin.includes('.lovable.app');
-      const isAllowedOrigin = allowedOrigins.includes(event.origin) || isLovableDomain;
-      
-      if (!isAllowedOrigin) {
-        console.log('❌ Message rejected from origin:', event.origin);
-        return;
-      }
-      
+      // Accept messages from ANY origin for now to debug
+      // We'll be more restrictive later once we know it works
       console.log('✅ Message accepted from origin:', event.origin);
       
-      if (event.data.type === 'mapReady') {
+      if (event.data && event.data.type === 'mapReady') {
         console.log('✅ Map is ready!');
         setIsMapReady(true);
         setIsMapLoading(false);
@@ -52,15 +39,27 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
             coordinates: pendingNavigationRef.current,
             zoom: 17
           };
-          mapIframeRef.current.contentWindow?.postMessage(navigationMessage, event.origin);
+          mapIframeRef.current.contentWindow?.postMessage(navigationMessage, '*');
           pendingNavigationRef.current = null;
         }
       }
       
       // Handle different possible message formats for waste bin clicks
-      if (event.data.type === 'wasteBinClick' || event.data.type === 'wasteBasketClick' || event.data.type === 'binClick') {
-        const binId = event.data.binId || event.data.wasteBasketId || event.data.id;
+      if (event.data && (
+        event.data.type === 'wasteBinClick' || 
+        event.data.type === 'wasteBasketClick' || 
+        event.data.type === 'binClick' ||
+        event.data.type === 'click' ||
+        event.data.type === 'markerClick'
+      )) {
+        const binId = event.data.binId || 
+                     event.data.wasteBasketId || 
+                     event.data.id || 
+                     event.data.markerId ||
+                     event.data.wasteBinId;
+        
         console.log('🗑️ Waste bin clicked in InteractiveMap, ID:', binId);
+        console.log('🗑️ Full event data:', event.data);
         
         if (!binId) {
           console.log('❌ No bin ID found in message data:', event.data);
@@ -70,13 +69,13 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
         // IMPORTANT: Call the callback to inform parent component
         if (onWasteBinSelect) {
           console.log('📤 Calling onWasteBinSelect with binId:', binId);
-          onWasteBinSelect(binId);
+          onWasteBinSelect(String(binId));
         } else {
           console.log('❌ onWasteBinSelect callback not available');
         }
         
         // Find the waste bin data for display
-        const bin = wasteBins.find(b => b.id === binId);
+        const bin = wasteBins.find(b => b.id === String(binId));
         if (bin) {
           console.log('✅ Found bin data:', bin);
           setSelectedBin(bin);
@@ -84,7 +83,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
           console.log('⚠️ Bin not found in data, creating mock data for:', binId);
           // Create mock data for bins not in our dataset
           const mockBin: WasteBin = {
-            id: binId,
+            id: String(binId),
             location: `Standort ${binId}`,
             coordinates: { lat: 49.4521, lng: 11.0767 },
             status: 'empty',
@@ -95,32 +94,41 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
         }
       }
       
-      // Handle any click events that might contain waste bin info
-      if (event.data.type === 'click' && (event.data.wasteBasketId || event.data.binId)) {
-        const binId = event.data.wasteBasketId || event.data.binId;
-        console.log('🖱️ Generic click with bin ID:', binId);
-        
-        if (onWasteBinSelect) {
-          console.log('📤 Calling onWasteBinSelect from generic click:', binId);
-          onWasteBinSelect(binId);
+      // Handle any message that might contain waste bin info (catch-all)
+      if (event.data && typeof event.data === 'object') {
+        const possibleBinId = event.data.wasteBasketId || 
+                             event.data.binId || 
+                             event.data.id ||
+                             event.data.markerId ||
+                             event.data.wasteBinId;
+                             
+        if (possibleBinId && onWasteBinSelect) {
+          console.log('🔍 Found potential bin ID in catch-all:', possibleBinId, 'Type:', event.data.type);
+          console.log('📤 Calling onWasteBinSelect with found binId:', possibleBinId);
+          onWasteBinSelect(String(possibleBinId));
         }
       }
 
-      // Handle any message that contains wastebasket data
-      if (event.data.wasteBasketId || event.data.binId || event.data.id) {
-        const binId = event.data.wasteBasketId || event.data.binId || event.data.id;
-        console.log('🔍 Found potential bin ID in message:', binId, 'Type:', event.data.type);
-        
-        if (onWasteBinSelect && binId) {
-          console.log('📤 Calling onWasteBinSelect with found binId:', binId);
-          onWasteBinSelect(binId);
+      // Also try to parse string messages that might be JSON
+      if (typeof event.data === 'string') {
+        try {
+          const parsed = JSON.parse(event.data);
+          console.log('📝 Parsed string message:', parsed);
+          
+          const binId = parsed.wasteBasketId || parsed.binId || parsed.id;
+          if (binId && onWasteBinSelect) {
+            console.log('📤 Calling onWasteBinSelect from parsed string:', binId);
+            onWasteBinSelect(String(binId));
+          }
+        } catch (e) {
+          console.log('❌ Could not parse string message:', event.data);
         }
       }
     };
 
     // Add comprehensive message listener
     window.addEventListener('message', handleMapMessage);
-    console.log('👂 Message listener added');
+    console.log('👂 Message listener added for ALL origins');
     
     return () => {
       window.removeEventListener('message', handleMapMessage);
@@ -155,7 +163,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
         };
         
         // Send message to iframe
-        mapIframeRef.current.contentWindow?.postMessage(navigationMessage, 'https://routenplanung.vercel.app');
+        mapIframeRef.current.contentWindow?.postMessage(navigationMessage, '*');
       } else {
         console.log('⏳ Map not ready, storing pending navigation:', center);
         pendingNavigationRef.current = center;
@@ -171,7 +179,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
                 coordinates: pendingNavigationRef.current,
                 zoom: 17
               };
-              mapIframeRef.current.contentWindow?.postMessage(navigationMessage, 'https://routenplanung.vercel.app');
+              mapIframeRef.current.contentWindow?.postMessage(navigationMessage, '*');
               
               // Clear pending navigation after successful attempt
               if (index === attempts.length - 1) {
@@ -295,7 +303,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
             {!isMapLoading && isMapReady && <span className="text-green-600">(Bereit)</span>}
           </p>
           <p className="text-xs text-gray-500 mt-1">
-            🔍 Debug: Schauen Sie in die Browser-Konsole für Message-Logs
+            🔍 Debug: Schauen Sie in die Browser-Konsole für Message-Logs (alle Origins erlaubt)
           </p>
         </div>
       </div>
