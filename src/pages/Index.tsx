@@ -571,6 +571,116 @@ const Index = () => {
     </header>
   );
 
+  const renderReportForm = () => (
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50">
+      {renderHeader()}
+      
+      <div className="container mx-auto px-4 py-8 max-w-2xl">
+        <Card className="bg-white shadow-lg">
+          <CardHeader>
+            <CardTitle className="text-2xl text-green-800 text-center">
+              🗑️ Mülleimer melden
+            </CardTitle>
+            <p className="text-gray-600 text-center">
+              Helfen Sie uns, Ihre Stadt sauber zu halten
+            </p>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              
+              {/* Enhanced Location Picker */}
+              <EnhancedLocationPicker
+                value={formData.location}
+                coordinates={locationCoordinates}
+                onChange={handleLocationChange}
+                onPartnerMunicipalityChange={handlePartnerMunicipalityChange}
+                onWasteBinSelect={handleWasteBinSelect}
+                selectedPartnerMunicipality={formData.partnerMunicipality}
+                selectedWasteBinId={formData.wasteBinId}
+              />
+
+              {/* Problem Type */}
+              <ProblemTypeSelect
+                value={formData.issueType}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, issueType: value }))}
+              />
+
+              {/* Photo Upload */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  📸 Foto (optional)
+                </label>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-green-400 transition-colors">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoUpload}
+                    className="hidden"
+                    id="photo-upload"
+                  />
+                  <label
+                    htmlFor="photo-upload"
+                    className="cursor-pointer flex flex-col items-center space-y-2"
+                  >
+                    <Upload className="w-8 h-8 text-gray-400" />
+                    <span className="text-gray-600">
+                      {formData.photo ? formData.photo.name : 'Foto auswählen'}
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Comment */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  💬 Zusätzliche Informationen (optional)
+                </label>
+                <Textarea
+                  value={formData.comment}
+                  onChange={(e) => setFormData(prev => ({ ...prev, comment: e.target.value }))}
+                  placeholder="Beschreiben Sie das Problem genauer..."
+                  className="resize-none"
+                  rows={3}
+                />
+              </div>
+
+              {/* Submit Button */}
+              <Button
+                type="submit"
+                disabled={!canSubmitReport || isSubmitting}
+                className={`w-full py-3 text-lg font-semibold ${
+                  canSubmitReport && !isSubmitting
+                    ? 'bg-green-500 hover:bg-green-600 text-white'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+              >
+                {isSubmitting ? 'Wird gesendet...' : 'Meldung absenden'}
+              </Button>
+
+              {/* Information Box */}
+              {!formData.partnerMunicipality && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <div className="flex items-start space-x-2">
+                    <Info className="w-5 h-5 text-yellow-600 mt-0.5" />
+                    <div>
+                      <p className="text-sm text-yellow-800 font-medium">
+                        Standort außerhalb der Partnerstädte
+                      </p>
+                      <p className="text-sm text-yellow-700 mt-1">
+                        Derzeit unterstützen wir nur Meldungen in Nürnberg, Erlangen und Fürth. 
+                        Bitte wählen Sie einen Standort in einer dieser Städte aus.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+
   const renderHome = () => (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50">
       {renderHeader()}
