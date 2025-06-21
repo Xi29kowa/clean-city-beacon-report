@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { User, Mail, Lock, MapPin, Phone, FileText, Calendar, Clock, Trash2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -83,7 +82,6 @@ const UserAccount = () => {
         });
       } else {
         console.log('No profile found, creating default values');
-        // If no profile exists, set default values
         setFormData({
           first_name: '',
           last_name: '',
@@ -115,10 +113,10 @@ const UserAccount = () => {
 
       if (data) {
         console.log('Reports loaded:', data);
-        // Add temporary case numbers for existing reports
+        // Generate case numbers for reports
         const reportsWithCaseNumbers = data.map(report => ({
           ...report,
-          case_number: `TEMP-${report.id.substring(0, 8)}`
+          case_number: `CASE-${Math.random().toString(36).substr(2, 8).toUpperCase()}`
         }));
 
         setReports(reportsWithCaseNumbers);
@@ -227,7 +225,8 @@ const UserAccount = () => {
       const { error } = await supabase
         .from('bin_reports')
         .delete()
-        .eq('id', reportId);
+        .eq('id', reportId)
+        .eq('user_id', user?.id);
 
       if (error) {
         console.error('Error deleting report:', error);
@@ -245,8 +244,8 @@ const UserAccount = () => {
         description: "Die Meldung wurde erfolgreich gelöscht.",
       });
 
-      // Reload reports to update the list
-      await loadUserReports();
+      // Remove the report from the local state immediately
+      setReports(prev => prev.filter(report => report.id !== reportId));
     } catch (error) {
       console.error('Error deleting report:', error);
       toast({
@@ -287,6 +286,25 @@ const UserAccount = () => {
         return 'Bearbeitet';
       default:
         return status;
+    }
+  };
+
+  const getIssueTypeText = (issueType: string) => {
+    switch (issueType) {
+      case 'full':
+        return 'Überfüllt';
+      case 'damaged':
+        return 'Beschädigt';
+      case 'missing':
+        return 'Fehlt';
+      case 'dirty':
+        return 'Verschmutzt';
+      case 'blocked':
+        return 'Blockiert';
+      case 'other':
+        return 'Sonstiges';
+      default:
+        return issueType;
     }
   };
 
@@ -497,10 +515,10 @@ const UserAccount = () => {
                         </div>
                         <div>
                           <p className="font-medium">Problem:</p>
-                          <p className="text-gray-600">{report.issue_type}</p>
+                          <p className="text-gray-600">{getIssueTypeText(report.issue_type)}</p>
                         </div>
                         <div>
-                          <p className="font-medium">Mülleimer ID:</p>
+                          <p className="font-medium">Mülleimer-ID:</p>
                           <p className="text-gray-600 font-mono bg-gray-100 px-2 py-1 rounded">
                             {report.waste_bin_id || 'Nicht verfügbar'}
                           </p>
