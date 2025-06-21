@@ -1,11 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
-import { User, Mail, Lock, MapPin, Phone, FileText, Calendar, Clock, Trash2 } from 'lucide-react';
+import { User, Mail, Lock, MapPin, Phone, FileText, Calendar, Trash2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -19,25 +21,26 @@ interface UserProfile {
   phone: string | null;
 }
 
-interface BinReport {
+interface Report {
   id: string;
-  case_number?: string;
-  location: string;
-  issue_type: string;
-  comment?: string;
-  created_at: string;
-  status: string;
-  partner_municipality?: string;
-  waste_bin_id?: string;
+  fallnummer: string;
+  timestamp: string;
+  standort: string;
+  problem: string;
+  gemeinde: string;
+  muelleimerID: string;
+  kommentar: string;
 }
 
 const UserAccount = () => {
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [reports, setReports] = useState<BinReport[]>([]);
+  const [reports, setReports] = useState<Report[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
+
+  // Profile form data
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -48,10 +51,16 @@ const UserAccount = () => {
     confirm_password: ''
   });
 
+  // Report form data
+  const [address, setAddress] = useState('');
+  const [wasteBasketId, setWasteBasketId] = useState('');
+  const [problemType, setProblemType] = useState('');
+  const [description, setDescription] = useState('');
+
   useEffect(() => {
     if (user) {
       loadUserProfile();
-      loadUserReports();
+      loadReports();
     }
   }, [user]);
 
@@ -95,41 +104,57 @@ const UserAccount = () => {
       }
     } catch (error) {
       console.error('Error loading profile:', error);
-    }
-  };
-
-  const loadUserReports = async () => {
-    try {
-      console.log('Loading reports for user:', user?.id);
-      const { data, error } = await supabase
-        .from('bin_reports')
-        .select('id, location, issue_type, comment, created_at, status, partner_municipality, waste_bin_id')
-        .eq('user_id', user?.id)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error loading reports:', error);
-        return;
-      }
-
-      if (data) {
-        console.log('🗑️ REPORTS LOADED WITH WASTE_BIN_ID:', data);
-        // Generate case numbers for reports
-        const reportsWithCaseNumbers = data.map(report => {
-          console.log(`🗑️ Report ${report.id} has waste_bin_id: "${report.waste_bin_id}"`);
-          return {
-            ...report,
-            case_number: `CASE-${Math.random().toString(36).substr(2, 8).toUpperCase()}`
-          };
-        });
-
-        setReports(reportsWithCaseNumbers);
-      }
-    } catch (error) {
-      console.error('Error loading reports:', error);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const loadReports = () => {
+    const saved = JSON.parse(localStorage.getItem('meldungen') || '[]');
+    setReports(saved);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Create new report with EXACT user input
+    const newReport: Report = {
+      id: Date.now().toString(),
+      fallnummer: `CASE-${Math.random().toString(36).substr(2, 8).toUpperCase()}`,
+      timestamp: new Date().toISOString(),
+      standort: address,           // EXACT address user typed
+      problem: problemType,        // EXACT problem user selected  
+      gemeinde: 'Nürnberg',       // Always Nürnberg
+      muelleimerID: wasteBasketId, // EXACT ID user typed manually
+      kommentar: description       // EXACT comment user typed
+    };
+    
+    // Save to localStorage
+    const existing = JSON.parse(localStorage.getItem('meldungen') || '[]');
+    const updated = [...existing, newReport];
+    localStorage.setItem('meldungen', JSON.stringify(updated));
+    
+    // Update state
+    setReports(updated);
+    
+    alert('Meldung erfolgreich eingereicht!');
+    
+    // Reset form
+    setAddress('');
+    setWasteBasketId('');
+    setProblemType('');
+    setDescription('');
+  };
+
+  const deleteReport = (reportId: string) => {
+    // Remove from array
+    const updated = reports.filter(r => r.id !== reportId);
+    
+    // Save to localStorage
+    localStorage.setItem('meldungen', JSON.stringify(updated));
+    
+    // Update state
+    setReports(updated);
   };
 
   const updateProfile = async () => {
@@ -223,81 +248,6 @@ const UserAccount = () => {
     }
   };
 
-  const deleteReport = async (reportId: string) => {
-    console.log('🗑️🗑️🗑️ PERMANENTLY DELETING REPORT:', reportId);
-    
-    try {
-      // FIRST: DELETE FROM DATABASE IMMEDIATELY
-      const { error } = await supabase
-        .from('bin_reports')
-        .delete()
-        .eq('id', reportId)
-        .eq('user_id', user?.id);
-
-      if (error) {
-        console.error('❌ Database deletion failed:', error);
-        toast({
-          title: "Fehler",
-          description: "Fehler beim Löschen der Meldung.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      console.log('✅ Report successfully DELETED from database');
-
-      // SECOND: REMOVE FROM UI STATE IMMEDIATELY
-      const updatedReports = reports.filter(report => report.id !== reportId);
-      setReports(updatedReports);
-      console.log('✅ Report REMOVED from UI, new count:', updatedReports.length);
-
-      toast({
-        title: "Meldung gelöscht",
-        description: "Die Meldung wurde PERMANENT gelöscht.",
-      });
-    } catch (error) {
-      console.error('❌ Unexpected error during deletion:', error);
-      toast({
-        title: "Fehler",
-        description: "Fehler beim Löschen der Meldung.",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('de-DE', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'in_progress':
-        return 'text-yellow-600 bg-yellow-50';
-      case 'processed':
-        return 'text-green-600 bg-green-50';
-      default:
-        return 'text-gray-600 bg-gray-50';
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'in_progress':
-        return 'In Bearbeitung';
-      case 'processed':
-        return 'Bearbeitet';
-      default:
-        return status;
-    }
-  };
-
   const getIssueTypeText = (issueType: string) => {
     switch (issueType) {
       case 'full':
@@ -334,12 +284,77 @@ const UserAccount = () => {
         </Button>
       </div>
 
-      <Tabs defaultValue="reports" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+      <Tabs defaultValue="report" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="report">Mülleimer melden</TabsTrigger>
           <TabsTrigger value="reports">Meine Meldungen</TabsTrigger>
           <TabsTrigger value="profile">Profil</TabsTrigger>
           <TabsTrigger value="security">Sicherheit</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="report">
+          <Card>
+            <CardHeader>
+              <CardTitle>Mülleimer melden</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <Label htmlFor="address">Standort</Label>
+                  <Input
+                    id="address"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="Adresse eingeben"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="wasteBasketId">Mülleimer-ID</Label>
+                  <Input
+                    id="wasteBasketId"
+                    value={wasteBasketId}
+                    onChange={(e) => setWasteBasketId(e.target.value)}
+                    placeholder="ID eingeben"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="problemType">Problem</Label>
+                  <Select value={problemType} onValueChange={setProblemType} required>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Problem auswählen" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="full">Überfüllt</SelectItem>
+                      <SelectItem value="damaged">Beschädigt</SelectItem>
+                      <SelectItem value="missing">Fehlt</SelectItem>
+                      <SelectItem value="dirty">Verschmutzt</SelectItem>
+                      <SelectItem value="blocked">Blockiert</SelectItem>
+                      <SelectItem value="other">Sonstiges</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="description">Kommentar</Label>
+                  <Textarea
+                    id="description"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Beschreibung (optional)"
+                    rows={3}
+                  />
+                </div>
+
+                <Button type="submit" className="w-full bg-green-500 hover:bg-green-600">
+                  Meldung einreichen
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="reports">
           <Card>
@@ -357,66 +372,48 @@ const UserAccount = () => {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {reports.map((report) => (
-                    <div key={report.id} className="border rounded-lg p-4 hover:bg-gray-50">
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <h3 className="font-semibold text-lg">
-                            Fallnummer: {report.case_number}
-                          </h3>
-                          <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>
-                            {getStatusText(report.status)}
+                  {reports.map(report => (
+                    <div key={report.id} className="border p-4 rounded mb-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <h3 className="font-semibold">Fallnummer: {report.fallnummer}</h3>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-500">
+                            {new Date(report.timestamp).toLocaleString('de-DE')}
                           </span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <div className="text-right text-sm text-gray-500">
-                            <div className="flex items-center space-x-1">
-                              <Calendar className="w-4 h-4" />
-                              <span>{formatDate(report.created_at)}</span>
-                            </div>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
+                          <button 
                             onClick={() => deleteReport(report.id)}
-                            className="text-red-600 border-red-200 hover:bg-red-50"
+                            className="text-red-500 hover:text-red-700 p-1"
                           >
                             <Trash2 className="w-4 h-4" />
-                          </Button>
+                          </button>
                         </div>
                       </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                        <div className="flex items-start space-x-2">
-                          <MapPin className="w-4 h-4 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="font-medium">Standort:</p>
-                            <p className="text-gray-600">{report.location}</p>
-                          </div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <strong>Standort:</strong>
+                          <p>{report.standort}</p>
                         </div>
                         <div>
-                          <p className="font-medium">Problem:</p>
-                          <p className="text-gray-600">{getIssueTypeText(report.issue_type)}</p>
+                          <strong>Problem:</strong>
+                          <p>{getIssueTypeText(report.problem)}</p>
                         </div>
                         <div>
-                          <p className="font-medium">Mülleimer-ID:</p>
-                          <p className="text-gray-600 font-mono bg-gray-100 px-2 py-1 rounded">
-                            {report.waste_bin_id ? `🗑️ ${report.waste_bin_id}` : 'Nicht verfügbar'}
-                          </p>
+                          <strong>Mülleimer-ID:</strong>
+                          <p>{report.muelleimerID || 'Nicht angegeben'}</p>
                         </div>
-                        {report.partner_municipality && (
-                          <div>
-                            <p className="font-medium">Gemeinde:</p>
-                            <p className="text-gray-600">{report.partner_municipality}</p>
-                          </div>
-                        )}
-                        {report.comment && (
-                          <div className="md:col-span-2">
-                            <p className="font-medium">Kommentar:</p>
-                            <p className="text-gray-600">{report.comment}</p>
-                          </div>
-                        )}
+                        <div>
+                          <strong>Gemeinde:</strong>
+                          <p>{report.gemeinde}</p>
+                        </div>
                       </div>
+                      
+                      {report.kommentar && (
+                        <div className="mt-2">
+                          <strong>Kommentar:</strong>
+                          <p>{report.kommentar}</p>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
