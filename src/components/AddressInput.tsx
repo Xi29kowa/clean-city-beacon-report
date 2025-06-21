@@ -42,8 +42,8 @@ const AddressInput: React.FC<AddressInputProps> = ({
           if (response.ok) {
             const data: AddressSuggestion[] = await response.json();
             
-            // Improved filtering and formatting
-            const filteredSuggestions = data
+            // Improved filtering and formatting with deduplication
+            const processedSuggestions = data
               .filter(suggestion => 
                 suggestion.address && 
                 suggestion.address.country_code === 'de'
@@ -64,10 +64,14 @@ const AddressInput: React.FC<AddressInputProps> = ({
                   display_name: parts.join(', '),
                   short_name: parts.slice(0, 2).join(' ')
                 };
-              })
-              .slice(0, 6); // Limit to 6 suggestions for better performance
+              });
+
+            // Remove duplicates based on display_name
+            const uniqueSuggestions = processedSuggestions.filter((suggestion, index, self) => 
+              index === self.findIndex(s => s.display_name === suggestion.display_name)
+            ).slice(0, 6); // Limit to 6 suggestions for better performance
             
-            setAddressSuggestions(filteredSuggestions);
+            setAddressSuggestions(uniqueSuggestions);
             setShowSuggestions(true);
           }
         } catch (error) {
