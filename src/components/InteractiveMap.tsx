@@ -14,7 +14,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
   const [selectedBin, setSelectedBin] = useState<WasteBin | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
   const [isMapLoading, setIsMapLoading] = useState(true);
-  const pendingNavigationRef = useRef<{ lat: number; lng: number } | null>(null);
+  const [loadingTimeout, setLoadingTimeout] = useState<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const handleMapMessage = (event: MessageEvent) => {
@@ -28,16 +28,16 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
         setIsMapReady(true);
         setIsMapLoading(false);
         
-        // Send any pending navigation
-        if (pendingNavigationRef.current && mapIframeRef.current) {
-          console.log('Sending pending navigation:', pendingNavigationRef.current);
-          const navigationMessage = {
-            type: 'navigateToLocation',
-            coordinates: pendingNavigationRef.current,
-            zoom: 17
-          };
-          mapIframeRef.current.contentWindow?.postMessage(navigationMessage, 'https://routenplanung.vercel.app');
-          pendingNavigationRef.current = null;
+        // Clear any loading timeout
+        if (loadingTimeout) {
+          clearTimeout(loadingTimeout);
+          setLoadingTimeout(null);
+        }
+        
+        // Send navigation if we have center coordinates
+        if (center && mapIframeRef.current) {
+          console.log('Map ready, sending initial navigation to:', center);
+          sendNavigationMessage(center);
         }
       }
       
@@ -55,7 +55,6 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
           }
         } else {
           console.log('Bin not found in data, creating mock data for:', binId);
-          // Create mock data for bins not in our dataset
           const mockBin: WasteBin = {
             id: binId,
             location: `Standort ${binId}`,
@@ -74,63 +73,68 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
 
     window.addEventListener('message', handleMapMessage);
     return () => window.removeEventListener('message', handleMapMessage);
-  }, [onWasteBinSelect]);
+  }, [onWasteBinSelect, center, loadingTimeout]);
 
-  // Handle iframe load
+  const sendNavigationMessage = (coordinates: { lat: number; lng: number }) => {
+    if (!mapIframeRef.current) return;
+    
+    const navigationMessage = {
+      type: 'navigateToLocation',
+      coordinates: {
+        lat: Number(coordinates.lat),
+        lng: Number(coordinates.lng)
+      },
+      zoom: 17
+    };
+    
+    console.log('Sending navigation message:', navigationMessage);
+    mapIframeRef.current.contentWindow?.postMessage(navigationMessage, 'https://routenplanung.vercel.app');
+  };
+
+  // Handle iframe load with shorter timeout
   const handleIframeLoad = () => {
-    console.log('Iframe loaded');
-    // Give the iframe a moment to initialize
-    setTimeout(() => {
+    console.log('Iframe loaded, waiting for map ready signal...');
+    
+    // Set a shorter timeout for map readiness
+    const timeout = setTimeout(() => {
       if (!isMapReady) {
-        console.log('Map ready timeout, assuming ready');
+        console.log('Map ready timeout (10s), assuming ready');
         setIsMapReady(true);
         setIsMapLoading(false);
+        
+        // Try to send navigation if we have coordinates
+        if (center) {
+          sendNavigationMessage(center);
+        }
       }
-    }, 2000);
+    }, 10000); // Reduced to 10 seconds
+    
+    setLoadingTimeout(timeout);
   };
 
   // Send navigation command to map when center changes
   useEffect(() => {
     if (center) {
-      console.log('Navigation requested to:', center);
+      console.log('Center changed, attempting navigation to:', center);
       
       if (mapIframeRef.current && isMapReady) {
-        console.log('Navigating map to coordinates immediately:', center);
-        const navigationMessage = {
-          type: 'navigateToLocation',
-          coordinates: center,
-          zoom: 17
-        };
-        
-        // Send message to iframe
-        mapIframeRef.current.contentWindow?.postMessage(navigationMessage, 'https://routenplanung.vercel.app');
+        console.log('Map ready, sending navigation immediately');
+        sendNavigationMessage(center);
       } else {
-        console.log('Map not ready, storing pending navigation:', center);
-        pendingNavigationRef.current = center;
-        
-        // Try multiple times with increasing delays
-        const attempts = [500, 1000, 2000, 3000];
-        attempts.forEach((delay, index) => {
-          setTimeout(() => {
-            if (mapIframeRef.current && pendingNavigationRef.current) {
-              console.log(`Retry ${index + 1}: Attempting navigation to:`, pendingNavigationRef.current);
-              const navigationMessage = {
-                type: 'navigateToLocation',
-                coordinates: pendingNavigationRef.current,
-                zoom: 17
-              };
-              mapIframeRef.current.contentWindow?.postMessage(navigationMessage, 'https://routenplanung.vercel.app');
-              
-              // Clear pending navigation after successful attempt
-              if (index === attempts.length - 1) {
-                pendingNavigationRef.current = null;
-              }
-            }
-          }, delay);
-        });
+        console.log('Map not ready, will send navigation when ready');
+        // Navigation will be sent when map becomes ready
       }
     }
   }, [center, isMapReady]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (loadingTimeout) {
+        clearTimeout(loadingTimeout);
+      }
+    };
+  }, [loadingTimeout]);
 
   const getStatusDisplay = (status: string) => {
     switch (status) {
@@ -151,14 +155,13 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
     }
   };
 
-  // Calculate fill level percentage based on status
   const getFillLevel = (status: string): number => {
     switch (status) {
       case 'empty': return 10;
       case 'full': return 85;
       case 'overflowing': return 100;
       case 'damaged': return 0;
-      default: return Math.floor(Math.random() * 80) + 10; // Random between 10-90%
+      default: return Math.floor(Math.random() * 80) + 10;
     }
   };
 
@@ -191,12 +194,13 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
               <div className="text-center">
                 <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-2" />
                 <p className="text-sm text-gray-600">Karte wird geladen...</p>
+                <p className="text-xs text-gray-500 mt-1">Maximal 10 Sekunden</p>
               </div>
             </div>
           )}
         </div>
         
-        {/* Selected Waste Bin Display with Enhanced Information */}
+        {/* Selected Waste Bin Display */}
         {selectedBin && (
           <div className="p-4 bg-blue-50 border-t border-blue-200">
             <div className="flex items-start gap-3">
@@ -240,6 +244,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
             Klicken Sie auf einen Mülleimer-Marker um Details anzuzeigen. Die Karte navigiert automatisch zu eingegebenen Adressen.
             {isMapLoading && <span className="text-orange-600">(Lädt...)</span>}
             {!isMapLoading && isMapReady && <span className="text-green-600">(Bereit)</span>}
+            {!isMapLoading && !isMapReady && <span className="text-red-600">(Fehler)</span>}
           </p>
         </div>
       </div>
