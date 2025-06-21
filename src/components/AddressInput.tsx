@@ -22,96 +22,134 @@ const AddressInput: React.FC<AddressInputProps> = ({
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceTimeoutRef = useRef<NodeJS.Timeout>();
+  const suggestionsRef = useRef<HTMLDivElement>(null);
 
-  // Enhanced address search with better house number handling
+  // Enhanced search with immediate response
+  const searchAddresses = useCallback(async (searchTerm: string) => {
+    if (searchTerm.length < 2) {
+      setAddressSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setShowSuggestions(true);
+
+    try {
+      // Optimize search for better house number detection
+      const query = encodeURIComponent(searchTerm);
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=8&q=${query}&countrycodes=de&dedupe=1&extratags=1&bounded=0`
+      );
+      
+      if (response.ok) {
+        const data: AddressSuggestion[] = await response.json();
+        
+        // Enhanced filtering and formatting
+        const filteredSuggestions = data
+          .filter(suggestion => 
+            suggestion.address && 
+            suggestion.address.country_code === 'de' &&
+            (suggestion.importance || 0) > 0.2
+          )
+          .map(suggestion => {
+            const addr = suggestion.address!;
+            
+            // Build primary address line
+            const primaryParts = [];
+            if (addr.road) primaryParts.push(addr.road);
+            if (addr.house_number) primaryParts.push(addr.house_number);
+            
+            // Build secondary address line
+            const secondaryParts = [];
+            if (addr.postcode) secondaryParts.push(addr.postcode);
+            if (addr.city || addr.town || addr.village) {
+              secondaryParts.push(addr.city || addr.town || addr.village);
+            }
+            
+            const primaryAddress = primaryParts.join(' ');
+            const secondaryAddress = secondaryParts.join(' ');
+            
+            return {
+              ...suggestion,
+              formatted_address: primaryAddress || suggestion.display_name.split(',')[0],
+              short_name: secondaryAddress,
+              display_name: suggestion.display_name
+            };
+          })
+          .sort((a, b) => {
+            // Prioritize exact matches and house numbers
+            const aHasHouseNumber = a.address?.house_number ? 2 : 0;
+            const bHasHouseNumber = b.address?.house_number ? 2 : 0;
+            
+            const aExactMatch = a.formatted_address?.toLowerCase().includes(searchTerm.toLowerCase()) ? 1 : 0;
+            const bExactMatch = b.formatted_address?.toLowerCase().includes(searchTerm.toLowerCase()) ? 1 : 0;
+            
+            const aScore = aHasHouseNumber + aExactMatch + (a.importance || 0);
+            const bScore = bHasHouseNumber + bExactMatch + (b.importance || 0);
+            
+            return bScore - aScore;
+          })
+          .slice(0, 6);
+        
+        setAddressSuggestions(filteredSuggestions);
+        setSelectedIndex(-1);
+      }
+    } catch (error) {
+      console.error('Address search error:', error);
+      setAddressSuggestions([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Debounced search with faster response
   const debouncedSearch = useCallback((searchTerm: string) => {
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
     }
 
-    debounceTimeoutRef.current = setTimeout(async () => {
-      if (searchTerm.length > 2) {
-        setIsLoading(true);
-        try {
-          // Enhanced search query for better accuracy
-          const searchQuery = encodeURIComponent(searchTerm);
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=10&q=${searchQuery}&countrycodes=de&dedupe=1&extratags=1`
-          );
-          
-          if (response.ok) {
-            const data: AddressSuggestion[] = await response.json();
-            
-            // Enhanced filtering and formatting for better address display
-            const filteredSuggestions = data
-              .filter(suggestion => 
-                suggestion.address && 
-                suggestion.address.country_code === 'de' &&
-                suggestion.importance > 0.3 // Filter for more relevant results
-              )
-              .map(suggestion => {
-                const addr = suggestion.address!;
-                const parts = [];
-                const shortParts = [];
-                
-                // Build detailed address
-                if (addr.road) {
-                  parts.push(addr.road);
-                  shortParts.push(addr.road);
-                }
-                if (addr.house_number) {
-                  parts.push(addr.house_number);
-                  shortParts.push(addr.house_number);
-                }
-                if (addr.postcode) parts.push(addr.postcode);
-                if (addr.city || addr.town || addr.village) {
-                  const city = addr.city || addr.town || addr.village;
-                  parts.push(city);
-                  if (shortParts.length < 2) shortParts.push(city);
-                }
-                if (addr.state) parts.push(addr.state);
-                
-                return {
-                  ...suggestion,
-                  display_name: parts.join(', '),
-                  short_name: shortParts.join(' '),
-                  formatted_address: `${addr.road || ''} ${addr.house_number || ''}`.trim() || parts.slice(0, 2).join(' ')
-                };
-              })
-              .sort((a, b) => {
-                // Prioritize results with house numbers
-                const aHasHouseNumber = a.address?.house_number ? 1 : 0;
-                const bHasHouseNumber = b.address?.house_number ? 1 : 0;
-                if (aHasHouseNumber !== bHasHouseNumber) {
-                  return bHasHouseNumber - aHasHouseNumber;
-                }
-                // Then sort by importance
-                return (b.importance || 0) - (a.importance || 0);
-              })
-              .slice(0, 8); // Limit to 8 suggestions
-            
-            setAddressSuggestions(filteredSuggestions);
-            setShowSuggestions(true);
-          }
-        } catch (error) {
-          console.error('Search error:', error);
-        } finally {
-          setIsLoading(false);
-        }
-      } else {
-        setAddressSuggestions([]);
-        setShowSuggestions(false);
-        setIsLoading(false);
-      }
-    }, 200); // Faster response time
-  }, []);
+    debounceTimeoutRef.current = setTimeout(() => {
+      searchAddresses(searchTerm);
+    }, 150); // Faster debounce for better UX
+  }, [searchAddresses]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     onChange(newValue);
     debouncedSearch(newValue);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSuggestions || addressSuggestions.length === 0) return;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setSelectedIndex(prev => 
+          prev < addressSuggestions.length - 1 ? prev + 1 : 0
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setSelectedIndex(prev => 
+          prev > 0 ? prev - 1 : addressSuggestions.length - 1
+        );
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (selectedIndex >= 0 && selectedIndex < addressSuggestions.length) {
+          handleSuggestionClick(addressSuggestions[selectedIndex]);
+        }
+        break;
+      case 'Escape':
+        setShowSuggestions(false);
+        setSelectedIndex(-1);
+        break;
+    }
   };
 
   const detectMunicipality = (suggestion: AddressSuggestion) => {
@@ -128,9 +166,10 @@ const AddressInput: React.FC<AddressInputProps> = ({
       lng: parseFloat(suggestion.lon)
     };
 
-    onChange(suggestion.display_name, coordinates);
+    // Use the formatted address for better display
+    const displayAddress = suggestion.formatted_address || suggestion.display_name;
+    onChange(displayAddress, coordinates);
     
-    // Immediately trigger map navigation
     if (onLocationSelect) {
       onLocationSelect(coordinates);
     }
@@ -140,6 +179,7 @@ const AddressInput: React.FC<AddressInputProps> = ({
     
     setShowSuggestions(false);
     setAddressSuggestions([]);
+    setSelectedIndex(-1);
   };
 
   const getCurrentLocation = () => {
@@ -152,11 +192,10 @@ const AddressInput: React.FC<AddressInputProps> = ({
 
     setIsGettingLocation(true);
     
-    // Enhanced geolocation options
     const options = {
       enableHighAccuracy: true,
-      timeout: 15000, // Increased timeout
-      maximumAge: 60000 // Allow cached location up to 1 minute
+      timeout: 15000,
+      maximumAge: 60000
     };
 
     navigator.geolocation.getCurrentPosition(
@@ -201,7 +240,6 @@ const AddressInput: React.FC<AddressInputProps> = ({
           }
         } catch (error) {
           console.error('Reverse geocoding error:', error);
-          // Fallback to coordinates
           const coordinatesAddress = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
           const coordinates = { lat: latitude, lng: longitude };
           
@@ -246,8 +284,23 @@ const AddressInput: React.FC<AddressInputProps> = ({
     onPartnerMunicipalityChange(null);
     setAddressSuggestions([]);
     setShowSuggestions(false);
+    setSelectedIndex(-1);
     inputRef.current?.focus();
   };
+
+  // Click outside to close suggestions
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(event.target as Node) &&
+          inputRef.current && !inputRef.current.contains(event.target as Node)) {
+        setShowSuggestions(false);
+        setSelectedIndex(-1);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -271,7 +324,14 @@ const AddressInput: React.FC<AddressInputProps> = ({
           placeholder="Straße, Hausnummer, PLZ, Stadt eingeben... (z.B. Lange Gasse 20, Nürnberg)"
           value={value}
           onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
+          onFocus={() => {
+            if (addressSuggestions.length > 0) {
+              setShowSuggestions(true);
+            }
+          }}
           className="pr-20"
+          autoComplete="off"
         />
         
         <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex space-x-1">
@@ -320,26 +380,32 @@ const AddressInput: React.FC<AddressInputProps> = ({
       )}
 
       {showSuggestions && addressSuggestions.length > 0 && (
-        <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg mt-1 max-h-80 overflow-y-auto z-50">
+        <div 
+          ref={suggestionsRef}
+          className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg mt-1 max-h-80 overflow-y-auto z-50"
+        >
           {addressSuggestions.map((suggestion, index) => (
             <button
               key={index}
               type="button"
               onClick={() => handleSuggestionClick(suggestion)}
-              className="w-full text-left px-4 py-3 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none border-b border-gray-100 last:border-b-0"
+              className={`w-full text-left px-4 py-3 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none border-b border-gray-100 last:border-b-0 transition-colors ${
+                index === selectedIndex ? 'bg-blue-50 border-blue-200' : ''
+              }`}
             >
               <div className="flex items-start space-x-3">
                 <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <div className="font-medium text-gray-900 truncate">
-                    {suggestion.formatted_address || suggestion.short_name}
+                    {suggestion.formatted_address}
                   </div>
                   <div className="text-sm text-gray-500 truncate">
-                    {suggestion.display_name}
+                    {suggestion.short_name}
                   </div>
                   {suggestion.address?.house_number && (
-                    <div className="text-xs text-green-600 mt-1">
-                      ✓ Hausnummer verfügbar
+                    <div className="text-xs text-green-600 mt-1 flex items-center">
+                      <span className="w-1 h-1 bg-green-500 rounded-full mr-1"></span>
+                      Hausnummer verfügbar
                     </div>
                   )}
                 </div>
