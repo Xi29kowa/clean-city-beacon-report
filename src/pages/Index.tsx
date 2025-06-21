@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Camera, MapPin, Leaf, CheckCircle, ArrowRight, Upload, Menu, X, Info, Shield, Phone, User, LogIn, Share2, Copy, Wifi, Battery, Zap, Database, Monitor, LogOut } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -589,7 +590,14 @@ const Index = () => {
             <form onSubmit={handleSubmit} className="space-y-6">
               
               {/* Enhanced Location Picker */}
-              <EnhancedLocationPicker />
+              <EnhancedLocationPicker
+                value={formData.location}
+                coordinates={locationCoordinates}
+                onChange={handleLocationChange}
+                onPartnerMunicipalityChange={handlePartnerMunicipalityChange}
+                onWasteBinSelect={handleWasteBinSelect}
+                onWasteBinIdChange={(id) => setFormData(prev => ({ ...prev, wasteBinId: id }))}
+              />
 
               {/* Problem Type */}
               <ProblemTypeSelect
