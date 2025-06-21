@@ -20,6 +20,8 @@ export type Database = {
           photo_url: string | null
           status: string
           updated_at: string
+          user_id: string | null
+          waste_bin_id: string | null
         }
         Insert: {
           comment?: string | null
@@ -31,6 +33,8 @@ export type Database = {
           photo_url?: string | null
           status?: string
           updated_at?: string
+          user_id?: string | null
+          waste_bin_id?: string | null
         }
         Update: {
           comment?: string | null
@@ -42,6 +46,8 @@ export type Database = {
           photo_url?: string | null
           status?: string
           updated_at?: string
+          user_id?: string | null
+          waste_bin_id?: string | null
         }
         Relationships: []
       }
@@ -79,20 +85,32 @@ export type Database = {
       }
       profiles: {
         Row: {
+          address: string | null
           created_at: string
+          first_name: string | null
           id: string
+          last_name: string | null
+          phone: string | null
           updated_at: string
           username: string
         }
         Insert: {
+          address?: string | null
           created_at?: string
+          first_name?: string | null
           id: string
+          last_name?: string | null
+          phone?: string | null
           updated_at?: string
           username: string
         }
         Update: {
+          address?: string | null
           created_at?: string
+          first_name?: string | null
           id?: string
+          last_name?: string | null
+          phone?: string | null
           updated_at?: string
           username?: string
         }

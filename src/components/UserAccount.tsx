@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { User, Mail, Lock, MapPin, Phone, FileText, Calendar, Clock } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -13,10 +12,10 @@ import { useToast } from '@/hooks/use-toast';
 interface UserProfile {
   id: string;
   username: string;
-  first_name?: string;
-  last_name?: string;
-  address?: string;
-  phone?: string;
+  first_name: string | null;
+  last_name: string | null;
+  address: string | null;
+  phone: string | null;
 }
 
 interface BinReport {
@@ -65,37 +64,21 @@ const UserAccount = () => {
 
       if (error) {
         console.error('Error loading profile:', error);
-        // If profile doesn't exist or fields don't exist, create a basic profile object
-        setProfile({
-          id: user?.id || '',
-          username: user?.username || '',
-          first_name: '',
-          last_name: '',
-          address: '',
-          phone: ''
-        });
+        return;
+      }
+
+      if (data) {
+        setProfile(data);
         setFormData({
-          first_name: '',
-          last_name: '',
-          address: '',
-          phone: '',
+          first_name: data.first_name || '',
+          last_name: data.last_name || '',
+          address: data.address || '',
+          phone: data.phone || '',
           current_password: '',
           new_password: '',
           confirm_password: ''
         });
-        return;
       }
-
-      setProfile(data);
-      setFormData({
-        first_name: data.first_name || '',
-        last_name: data.last_name || '',
-        address: data.address || '',
-        phone: data.phone || '',
-        current_password: '',
-        new_password: '',
-        confirm_password: ''
-      });
     } catch (error) {
       console.error('Error loading profile:', error);
     }
@@ -114,13 +97,15 @@ const UserAccount = () => {
         return;
       }
 
-      // Add temporary case numbers for existing reports
-      const reportsWithCaseNumbers = (data || []).map(report => ({
-        ...report,
-        case_number: `TEMP-${report.id.substring(0, 8)}`
-      }));
+      if (data) {
+        // Add temporary case numbers for existing reports
+        const reportsWithCaseNumbers = data.map(report => ({
+          ...report,
+          case_number: `TEMP-${report.id.substring(0, 8)}`
+        }));
 
-      setReports(reportsWithCaseNumbers);
+        setReports(reportsWithCaseNumbers);
+      }
     } catch (error) {
       console.error('Error loading reports:', error);
     } finally {
@@ -146,8 +131,9 @@ const UserAccount = () => {
       if (error) {
         console.error('Update error:', error);
         toast({
-          title: "Info",
-          description: "Profil-Update wird verfügbar sein, sobald die Datenbank vollständig aktualisiert wurde.",
+          title: "Fehler",
+          description: "Fehler beim Speichern der Daten.",
+          variant: "destructive"
         });
       } else {
         toast({
@@ -159,8 +145,9 @@ const UserAccount = () => {
     } catch (error) {
       console.error('Error updating profile:', error);
       toast({
-        title: "Info",
-        description: "Profil-Update wird verfügbar sein, sobald die Datenbank vollständig aktualisiert wurde.",
+        title: "Fehler",
+        description: "Fehler beim Speichern der Daten.",
+        variant: "destructive"
       });
     } finally {
       setIsUpdating(false);
