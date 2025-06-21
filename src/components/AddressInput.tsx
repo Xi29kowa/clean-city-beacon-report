@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { MapPin, Navigation } from 'lucide-react';
 import { AddressSuggestion } from '@/types/location';
-import { fetchAddressSuggestions, reverseGeocode, checkPartnerMunicipality } from '@/utils/locationUtils';
+import { reverseGeocode, checkPartnerMunicipality } from '@/utils/locationUtils';
 
 interface AddressInputProps {
   value: string;
@@ -23,19 +23,82 @@ const AddressInput: React.FC<AddressInputProps> = ({
   const [isSearching, setIsSearching] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
+  const debounceTimerRef = useRef<NodeJS.Timeout>();
+
+  const fetchAddressSuggestions = async (query: string): Promise<AddressSuggestion[]> => {
+    if (query.length < 3) return [];
+
+    try {
+      // Enhanced search parameters for better German address results
+      const searchParams = new URLSearchParams({
+        format: 'json',
+        addressdetails: '1',
+        limit: '8',
+        countrycodes: 'DE',
+        'accept-language': 'de',
+        bounded: '1',
+        viewbox: '10.9,49.3,11.2,49.6', // Nürnberg area bounds
+        q: query
+      });
+
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?${searchParams}`,
+        {
+          headers: {
+            'User-Agent': 'WasteBinReporter/1.0'
+          }
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error('Search request failed');
+      }
+
+      const data = await response.json();
+      
+      return data
+        .filter((item: any) => {
+          // Filter for relevant address types
+          return item.type === 'house' || 
+                 item.type === 'building' || 
+                 item.type === 'address' ||
+                 item.class === 'place' ||
+                 (item.address && (item.address.house_number || item.address.road));
+        })
+        .map((item: any) => ({
+          display_name: item.display_name,
+          lat: item.lat,
+          lon: item.lon
+        }))
+        .slice(0, 6); // Limit to 6 suggestions
+    } catch (error) {
+      console.error('Error fetching address suggestions:', error);
+      return [];
+    }
+  };
 
   const handleAddressInput = (inputValue: string) => {
     onChange(inputValue);
     
-    const timeoutId = setTimeout(async () => {
-      setIsSearching(true);
-      const suggestions = await fetchAddressSuggestions(inputValue);
-      setAddressSuggestions(suggestions);
-      setShowSuggestions(suggestions.length > 0 || inputValue.length >= 3);
-      setIsSearching(false);
+    // Clear existing timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    
+    // Set new timer for debounced search
+    debounceTimerRef.current = setTimeout(async () => {
+      if (inputValue.length >= 3) {
+        setIsSearching(true);
+        const suggestions = await fetchAddressSuggestions(inputValue);
+        setAddressSuggestions(suggestions);
+        setShowSuggestions(true);
+        setIsSearching(false);
+      } else {
+        setAddressSuggestions([]);
+        setShowSuggestions(false);
+        setIsSearching(false);
+      }
     }, 300);
-
-    return () => clearTimeout(timeoutId);
   };
 
   const handleSuggestionSelect = async (suggestion: AddressSuggestion) => {
@@ -102,7 +165,12 @@ const AddressInput: React.FC<AddressInputProps> = ({
     };
 
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
   }, []);
 
   return (
