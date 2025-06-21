@@ -1,6 +1,6 @@
 
 import React, { useRef, useEffect, useState } from 'react';
-import { MapPin, Trash2 } from 'lucide-react';
+import { MapPin, Trash2, Loader2 } from 'lucide-react';
 import { WasteBin } from '@/types/location';
 import { wasteBins } from '@/data/wasteBins';
 
@@ -13,6 +13,8 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
   const mapIframeRef = useRef<HTMLIFrameElement>(null);
   const [selectedBin, setSelectedBin] = useState<WasteBin | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
+  const [isMapLoading, setIsMapLoading] = useState(true);
+  const pendingNavigationRef = useRef<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => {
     const handleMapMessage = (event: MessageEvent) => {
@@ -24,6 +26,19 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
       if (event.data.type === 'mapReady') {
         console.log('Map is ready!');
         setIsMapReady(true);
+        setIsMapLoading(false);
+        
+        // Send any pending navigation
+        if (pendingNavigationRef.current && mapIframeRef.current) {
+          console.log('Sending pending navigation:', pendingNavigationRef.current);
+          const navigationMessage = {
+            type: 'navigateToLocation',
+            coordinates: pendingNavigationRef.current,
+            zoom: 17
+          };
+          mapIframeRef.current.contentWindow?.postMessage(navigationMessage, 'https://routenplanung.vercel.app');
+          pendingNavigationRef.current = null;
+        }
       }
       
       if (event.data.type === 'wasteBinClick') {
@@ -61,36 +76,59 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
     return () => window.removeEventListener('message', handleMapMessage);
   }, [onWasteBinSelect]);
 
+  // Handle iframe load
+  const handleIframeLoad = () => {
+    console.log('Iframe loaded');
+    // Give the iframe a moment to initialize
+    setTimeout(() => {
+      if (!isMapReady) {
+        console.log('Map ready timeout, assuming ready');
+        setIsMapReady(true);
+        setIsMapLoading(false);
+      }
+    }, 2000);
+  };
+
   // Send navigation command to map when center changes
   useEffect(() => {
-    if (center && mapIframeRef.current && isMapReady) {
-      console.log('Navigating map to coordinates:', center);
-      const navigationMessage = {
-        type: 'navigateToLocation',
-        coordinates: center,
-        zoom: 17 // Street-level zoom
-      };
+    if (center) {
+      console.log('Navigation requested to:', center);
       
-      // Send message to iframe
-      mapIframeRef.current.contentWindow?.postMessage(navigationMessage, 'https://routenplanung.vercel.app');
-    } else if (center && !isMapReady) {
-      // If map is not ready yet, wait and try again
-      console.log('Map not ready, will navigate once ready');
-      const retryInterval = setInterval(() => {
-        if (isMapReady && mapIframeRef.current) {
-          console.log('Map ready, navigating to:', center);
-          const navigationMessage = {
-            type: 'navigateToLocation',
-            coordinates: center,
-            zoom: 17
-          };
-          mapIframeRef.current.contentWindow?.postMessage(navigationMessage, 'https://routenplanung.vercel.app');
-          clearInterval(retryInterval);
-        }
-      }, 500);
-      
-      // Clean up interval after 10 seconds
-      setTimeout(() => clearInterval(retryInterval), 10000);
+      if (mapIframeRef.current && isMapReady) {
+        console.log('Navigating map to coordinates immediately:', center);
+        const navigationMessage = {
+          type: 'navigateToLocation',
+          coordinates: center,
+          zoom: 17
+        };
+        
+        // Send message to iframe
+        mapIframeRef.current.contentWindow?.postMessage(navigationMessage, 'https://routenplanung.vercel.app');
+      } else {
+        console.log('Map not ready, storing pending navigation:', center);
+        pendingNavigationRef.current = center;
+        
+        // Try multiple times with increasing delays
+        const attempts = [500, 1000, 2000, 3000];
+        attempts.forEach((delay, index) => {
+          setTimeout(() => {
+            if (mapIframeRef.current && pendingNavigationRef.current) {
+              console.log(`Retry ${index + 1}: Attempting navigation to:`, pendingNavigationRef.current);
+              const navigationMessage = {
+                type: 'navigateToLocation',
+                coordinates: pendingNavigationRef.current,
+                zoom: 17
+              };
+              mapIframeRef.current.contentWindow?.postMessage(navigationMessage, 'https://routenplanung.vercel.app');
+              
+              // Clear pending navigation after successful attempt
+              if (index === attempts.length - 1) {
+                pendingNavigationRef.current = null;
+              }
+            }
+          }, delay);
+        });
+      }
     }
   }, [center, isMapReady]);
 
@@ -137,13 +175,26 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
         🗺️ Interaktive Karte mit Mülleimern
       </label>
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
-        <iframe 
-          ref={mapIframeRef}
-          src="https://routenplanung.vercel.app/nbg_wastebaskets_map.html"
-          className="w-full h-96 border-0 rounded-t-lg"
-          title="Interaktive Mülleimer Karte"
-          style={{ minHeight: '384px' }}
-        />
+        <div className="relative">
+          <iframe 
+            ref={mapIframeRef}
+            src="https://routenplanung.vercel.app/nbg_wastebaskets_map.html"
+            className="w-full h-96 border-0 rounded-t-lg"
+            title="Interaktive Mülleimer Karte"
+            style={{ minHeight: '384px' }}
+            onLoad={handleIframeLoad}
+          />
+          
+          {/* Loading overlay */}
+          {isMapLoading && (
+            <div className="absolute inset-0 bg-gray-100 rounded-t-lg flex items-center justify-center">
+              <div className="text-center">
+                <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-2" />
+                <p className="text-sm text-gray-600">Karte wird geladen...</p>
+              </div>
+            </div>
+          )}
+        </div>
         
         {/* Selected Waste Bin Display with Enhanced Information */}
         {selectedBin && (
@@ -186,8 +237,9 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
         <div className="p-3 bg-gray-50 rounded-b-lg">
           <p className="text-xs text-gray-600 flex items-center gap-2">
             <MapPin className="w-3 h-3" />
-            Klicken Sie auf einen Mülleimer-Marker um Details anzuzeigen. Die Karte navigiert automatisch zu ausgewählten Adressen.
-            {!isMapReady && <span className="text-orange-600">(Karte wird geladen...)</span>}
+            Klicken Sie auf einen Mülleimer-Marker um Details anzuzeigen. Die Karte navigiert automatisch zu eingegebenen Adressen.
+            {isMapLoading && <span className="text-orange-600">(Lädt...)</span>}
+            {!isMapLoading && isMapReady && <span className="text-green-600">(Bereit)</span>}
           </p>
         </div>
       </div>

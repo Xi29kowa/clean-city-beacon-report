@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { LocationPickerProps, WasteBin } from '@/types/location';
 import { wasteBins } from '@/data/wasteBins';
 import AddressInput from './AddressInput';
@@ -56,27 +56,28 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
 
   const handleLocationSelect = (coordinates: { lat: number; lng: number }) => {
     console.log('Location selected, navigating map to:', coordinates);
-    // Immediately update map center to navigate to the selected location
-    setMapCenter(coordinates);
+    // Force immediate map navigation
+    setMapCenter({ ...coordinates });
   };
 
   const handleAddressChange = (location: string, coordinates?: { lat: number; lng: number }) => {
+    console.log('Address changed:', location, coordinates);
     onChange(location, coordinates);
     
-    // If coordinates are provided, navigate the map immediately
+    // Force immediate map navigation when address changes
     if (coordinates) {
-      console.log('Address changed, navigating map to:', coordinates);
-      setMapCenter(coordinates);
+      console.log('Address changed, forcing map navigation to:', coordinates);
+      setMapCenter({ ...coordinates });
     }
   };
 
   // Update map center when coordinates prop changes
-  React.useEffect(() => {
+  useEffect(() => {
     if (coordinates) {
       console.log('Coordinates prop changed, updating map center:', coordinates);
-      setMapCenter(coordinates);
+      setMapCenter({ ...coordinates });
     }
-  }, [coordinates]);
+  }, [coordinates?.lat, coordinates?.lng]);
 
   return (
     <div className="space-y-4">
