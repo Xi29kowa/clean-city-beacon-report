@@ -40,6 +40,7 @@ const Index = () => {
   // Map specific state
   const [mapAddress, setMapAddress] = useState('');
   const [selectedWasteBasket, setSelectedWasteBasket] = useState('');
+  const [selectedWasteBasketId, setSelectedWasteBasketId] = useState('');
   const mapIframeRef = useRef<HTMLIFrameElement>(null);
   
   const inputRef = useRef(null);
@@ -68,6 +69,7 @@ const Index = () => {
       if (event.data.type === 'wasteBasketSelected') {
         console.log('Waste basket selected:', event.data.id);
         setSelectedWasteBasket(event.data.id);
+        setSelectedWasteBasketId(event.data.id);
         toast({
           title: "Mülleimer ausgewählt",
           description: `WasteBasket ID: ${event.data.id}`,
@@ -104,17 +106,17 @@ const Index = () => {
 
   // Handle "Mülleimer melden" button click
   const handleReportWasteBasket = () => {
-    if (selectedWasteBasket) {
+    if (selectedWasteBasketId) {
       // Pre-fill the form with the selected waste basket
       setFormData(prev => ({ 
         ...prev, 
-        wasteBinId: selectedWasteBasket,
-        location: `Standort Mülleimer ${selectedWasteBasket}`
+        wasteBinId: selectedWasteBasketId,
+        location: `Standort Mülleimer ${selectedWasteBasketId}`
       }));
       setCurrentView('report');
       toast({
         title: "Formular vorbereitet",
-        description: `Mülleimer ${selectedWasteBasket} für Meldung ausgewählt`,
+        description: `Mülleimer ${selectedWasteBasketId} für Meldung ausgewählt`,
       });
     }
   };
@@ -979,7 +981,7 @@ const Index = () => {
     </div>
   );
 
-  // Updated Karte view with interactive features
+  // Updated Karte view with interactive features and WasteBasket ID field
   const renderKarte = () => (
     <div className="min-h-screen bg-gray-50">
       {renderHeader()}
@@ -1022,18 +1024,17 @@ const Index = () => {
             />
           </div>
 
-          {/* Selected WasteBasket ID Display */}
+          {/* NEW: WasteBasket ID Field */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               🗑️ Ausgewählter Mülleimer
             </label>
             <Input
               type="text"
-              value={selectedWasteBasket || 'Keine Auswahl'}
+              value={selectedWasteBasketId || 'Kein Mülleimer ausgewählt'}
               readOnly
-              disabled
               className={`font-medium ${
-                selectedWasteBasket 
+                selectedWasteBasketId 
                   ? 'bg-green-50 border-green-200 text-green-800' 
                   : 'bg-gray-100 text-gray-500'
               }`}
@@ -1044,14 +1045,14 @@ const Index = () => {
           <div className="flex justify-center">
             <Button
               onClick={handleReportWasteBasket}
-              disabled={!selectedWasteBasket}
+              disabled={!selectedWasteBasketId}
               className={`px-8 py-3 text-lg font-semibold ${
-                selectedWasteBasket
+                selectedWasteBasketId
                   ? 'bg-green-500 hover:bg-green-600 text-white'
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
             >
-              {selectedWasteBasket ? 'Mülleimer melden' : 'Zuerst Mülleimer auswählen'}
+              {selectedWasteBasketId ? 'Mülleimer melden' : 'Zuerst Mülleimer auswählen'}
             </Button>
           </div>
 
