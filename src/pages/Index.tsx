@@ -1044,9 +1044,22 @@ const Index = () => {
             Vielen Dank!
           </h2>
           
-          <p className="text-lg text-gray-600 mb-8">
+          <p className="text-lg text-gray-600 mb-6">
             Ihre Meldung wurde erfolgreich übermittelt. Die Stadtreinigung wird schnellstmöglich reagieren.
           </p>
+
+          {/* Orange text and view reports button */}
+          <div className="mb-8">
+            <p className="text-orange-600 font-semibold text-lg mb-4">
+              Meldung jetzt ansehen
+            </p>
+            <Button 
+              onClick={() => navigate('/account')}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold mb-6"
+            >
+              Meldungen ansehen
+            </Button>
+          </div>
 
           <div className="space-y-4 mb-8">
             <div className="bg-blue-50 p-4 rounded-lg">
