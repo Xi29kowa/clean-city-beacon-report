@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, MapPin, Leaf, CheckCircle, ArrowRight, Upload, Menu, X, Info, Shield, Phone, User, LogIn, Share2, Copy, Wifi, Battery, Zap, Database, Monitor, LogOut } from 'lucide-react';
+import { Camera, MapPin, Leaf, CheckCircle, ArrowRight, Upload, Menu, X, Info, Shield, Phone, User, LogIn, Share2, Copy, Wifi, Battery, Zap, Database, Monitor, LogOut, Navigation } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -42,6 +42,16 @@ const Index = () => {
   const [selectedWasteBasket, setSelectedWasteBasket] = useState('');
   const [selectedWasteBasketId, setSelectedWasteBasketId] = useState('');
   const mapIframeRef = useRef<HTMLIFrameElement>(null);
+
+  // NEW: Karte form state
+  const [karteFormData, setKarteFormData] = useState({
+    address: '',
+    wasteBinId: '',
+    partnerCity: 'nuernberg',
+    photo: null,
+    problemType: '',
+    additionalInfo: ''
+  });
   
   const inputRef = useRef(null);
   const { toast } = useToast();
@@ -68,8 +78,7 @@ const Index = () => {
       
       if (event.data.type === 'wasteBasketSelected') {
         console.log('Waste basket selected:', event.data.id);
-        setSelectedWasteBasket(event.data.id);
-        setSelectedWasteBasketId(event.data.id);
+        setKarteFormData(prev => ({ ...prev, wasteBinId: event.data.id }));
         toast({
           title: "Mülleimer ausgewählt",
           description: `WasteBasket ID: ${event.data.id}`,
@@ -92,116 +101,78 @@ const Index = () => {
     }
   };
 
+  // Handle GPS location
+  const handleGetGPSLocation = () => {
+    if (!navigator.geolocation) {
+      toast({
+        title: "GPS nicht verfügbar",
+        description: "Ihr Browser unterstützt keine GPS-Ortung.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGettingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        
+        try {
+          // Use reverse geocoding to get address from coordinates
+          const response = await fetch(
+            `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=YOUR_MAPBOX_TOKEN&types=address&limit=1`
+          );
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.features && data.features.length > 0) {
+              const address = data.features[0].place_name;
+              setKarteFormData(prev => ({ ...prev, address }));
+              sendAddressToMap(address);
+            }
+          }
+        } catch (error) {
+          console.error('Reverse geocoding failed:', error);
+          setKarteFormData(prev => ({ 
+            ...prev, 
+            address: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}` 
+          }));
+        }
+        
+        setIsGettingLocation(false);
+        toast({
+          title: "Standort gefunden",
+          description: "Ihr aktueller Standort wurde ermittelt.",
+        });
+      },
+      (error) => {
+        setIsGettingLocation(false);
+        toast({
+          title: "GPS-Fehler",
+          description: "Standort konnte nicht ermittelt werden.",
+          variant: "destructive",
+        });
+      }
+    );
+  };
+
   // Handle address input and navigation
   const handleAddressSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (mapAddress.trim()) {
-      sendAddressToMap(mapAddress);
+    if (karteFormData.address.trim()) {
+      sendAddressToMap(karteFormData.address);
       toast({
         title: "Navigation gestartet",
-        description: `Navigiere zu: ${mapAddress}`,
+        description: `Navigiere zu: ${karteFormData.address}`,
       });
     }
   };
 
-  // Handle "Mülleimer melden" button click
-  const handleReportWasteBasket = () => {
-    if (selectedWasteBasketId) {
-      // Pre-fill the form with the selected waste basket
-      setFormData(prev => ({ 
-        ...prev, 
-        wasteBinId: selectedWasteBasketId,
-        location: `Standort Mülleimer ${selectedWasteBasketId}`
-      }));
-      setCurrentView('report');
-      toast({
-        title: "Formular vorbereitet",
-        description: `Mülleimer ${selectedWasteBasketId} für Meldung ausgewählt`,
-      });
-    }
-  };
-
-  // Check if report can be submitted based on partner municipality
-  useEffect(() => {
-    const hasLocation = formData.location?.trim();
-    const hasIssueType = formData.issueType;
-    const hasPartnerMunicipality = formData.partnerMunicipality;
-    
-    setCanSubmitReport(Boolean(hasLocation && hasIssueType && hasPartnerMunicipality));
-  }, [formData.location, formData.issueType, formData.partnerMunicipality]);
-
-  // Animation function for counter
-  const animateCounter = (start, end, duration = 1000) => {
-    const startTime = Date.now();
-    const range = end - start;
-    
-    const timer = setInterval(() => {
-      const elapsed = Date.now() - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      
-      // Easing function for smooth animation
-      const easeOut = 1 - Math.pow(1 - progress, 3);
-      const current = Math.round(start + range * easeOut);
-      
-      setDisplayCount(current);
-      
-      if (progress === 1) {
-        clearInterval(timer);
-      }
-    }, 16); // ~60fps
-  };
-
-  // Update counter when statistics change
-  useEffect(() => {
-    if (!statsLoading && displayCount !== statistics.total_reports) {
-      animateCounter(displayCount, statistics.total_reports);
-    }
-  }, [statistics.total_reports, statsLoading]);
-
-  // Clean town and city images for slideshow - using uploaded images
-  const cityImages = [
-    '/lovable-uploads/6d72ae02-350d-4772-97a8-7c4277724471.png',
-    '/lovable-uploads/2ef5a94a-bbdd-4ab8-928b-2eea2b8f4491.png',
-    '/lovable-uploads/0343eb59-7972-47ca-98cc-2877fdd5f59a.png',
-    '/lovable-uploads/2b8fbdcc-e881-4cba-838c-9de31ff24223.png',
-    '/lovable-uploads/1be0d136-0b07-4c24-b9ef-4a8735691b13.png'
-  ];
-
-  // Slideshow effect
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentImageIndex((prevIndex) => 
-        prevIndex === cityImages.length - 1 ? 0 : prevIndex + 1
-      );
-    }, 4000);
-
-    return () => clearInterval(interval);
-  }, [cityImages.length]);
-
-  const handleLocationChange = (location: string, coordinates?: { lat: number; lng: number }) => {
-    setFormData(prev => ({ ...prev, location }));
-    if (coordinates) {
-      setLocationCoordinates(coordinates);
-    }
-  };
-
-  const handlePartnerMunicipalityChange = (municipality: string | null) => {
-    setFormData(prev => ({ ...prev, partnerMunicipality: municipality || '' }));
-  };
-
-  const handleWasteBinSelect = (binId: string, binLocation: string) => {
-    console.log('Waste bin selected in Index:', binId, binLocation);
-    setFormData(prev => ({ 
-      ...prev, 
-      wasteBinId: binId,
-      location: binLocation || prev.location
-    }));
-  };
-
-  const handlePhotoUpload = (e) => {
-    const file = e.target.files[0];
+  // Handle photo upload for Karte form
+  const handleKartePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (file) {
-      setFormData(prev => ({ ...prev, photo: file }));
+      setKarteFormData(prev => ({ ...prev, photo: file }));
       toast({
         title: "Foto hochgeladen!",
         description: "Ihr Bild wurde zur Meldung hinzugefügt.",
@@ -209,125 +180,52 @@ const Index = () => {
     }
   };
 
-  const handleSubmit = async (e) => {
+  // Handle Karte form submission
+  const handleKarteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    console.log('Form submission started with data:', {
-      location: formData.location,
-      issueType: formData.issueType,
-      comment: formData.comment?.trim() || null,
-      photo: formData.photo?.name || 'none',
-      partnerMunicipality: formData.partnerMunicipality,
-      wasteBinId: formData.wasteBinId
-    });
-    
-    if (!formData.location?.trim()) {
+    if (!karteFormData.wasteBinId) {
       toast({
-        title: "Fehlende Angaben",
-        description: "Bitte geben Sie einen Standort an.",
+        title: "Mülleimer auswählen",
+        description: "Bitte wählen Sie zuerst einen Mülleimer auf der Karte aus.",
         variant: "destructive",
       });
       return;
     }
     
-    if (!formData.issueType) {
+    if (!karteFormData.problemType) {
       toast({
-        title: "Fehlende Angaben", 
-        description: "Bitte wählen Sie eine Problemart aus.",
+        title: "Problem-Art auswählen",
+        description: "Bitte wählen Sie eine Problem-Art aus.",
         variant: "destructive",
       });
       return;
     }
 
-    if (!formData.partnerMunicipality) {
-      toast({
-        title: "Standort nicht unterstützt",
-        description: "Leider unterstützen wir derzeit nur Meldungen in ausgewählten Partnerstädten.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
     const reportId = await submitReport({
-      location: formData.location.trim(),
-      issue_type: formData.issueType,
-      comment: formData.comment?.trim() || null,
-      photo: formData.photo,
-      partner_municipality: formData.partnerMunicipality || null
+      location: karteFormData.address || `Mülleimer ${karteFormData.wasteBinId}`,
+      issue_type: karteFormData.problemType,
+      comment: karteFormData.additionalInfo?.trim() || null,
+      photo: karteFormData.photo,
+      partner_municipality: karteFormData.partnerCity
     });
 
     if (reportId) {
       setCurrentReportId(reportId);
       setCurrentView('confirmation');
-      setFormData({ 
-        location: '', 
-        photo: null, 
-        issueType: '', 
-        comment: '', 
-        partnerMunicipality: '',
-        wasteBinId: '' 
+      setKarteFormData({
+        address: '',
+        wasteBinId: '',
+        partnerCity: 'nuernberg',
+        photo: null,
+        problemType: '',
+        additionalInfo: ''
       });
-      setLocationCoordinates(null);
       toast({
         title: "Meldung erfolgreich!",
         description: "Ihre Meldung wurde an die Stadtreinigung weitergeleitet.",
       });
-    } else {
-      toast({
-        title: "Fehler beim Senden",
-        description: "Ihre Meldung konnte nicht übermittelt werden. Bitte versuchen Sie es erneut.",
-        variant: "destructive",
-      });
     }
-  };
-
-  const handleNotificationRequest = async (email: string) => {
-    if (!currentReportId) return false;
-    return await submitNotificationRequest(email, currentReportId);
-  };
-
-  const handleShare = async () => {
-    const url = window.location.href;
-    const title = 'CleanCity - Hilf mit, deine Stadt sauber zu halten!';
-    const text = 'Melde überfüllte oder beschädigte Mülleimer mit CleanCity und sorge für eine saubere Stadt.';
-
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title,
-          text,
-          url
-        });
-      } catch (error) {
-        console.log('Share cancelled or failed:', error);
-      }
-    } else {
-      try {
-        await navigator.clipboard.writeText(url);
-        toast({
-          title: "Link kopiert!",
-          description: "Der Link wurde in die Zwischenablage kopiert.",
-        });
-      } catch (error) {
-        console.error('Failed to copy to clipboard:', error);
-        toast({
-          title: "Fehler",
-          description: "Der Link konnte nicht kopiert werden.",
-          variant: "destructive",
-        });
-      }
-    }
-  };
-
-  const handleLogout = () => {
-    logout();
-    if (currentView === 'karte') {
-      setCurrentView('home');
-    }
-    toast({
-      title: "Erfolgreich abgemeldet",
-      description: "Auf Wiedersehen!",
-    });
   };
 
   const renderHeader = () => (
@@ -558,411 +456,153 @@ const Index = () => {
     </header>
   );
 
-  const renderHome = () => (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50">
-      {renderHeader()}
-      
-      {/* Hero Section with Slideshow */}
-      <section className="px-4 py-12 text-center relative overflow-hidden h-96 md:h-[500px]">
-        {/* Background Images */}
-        {cityImages.map((image, index) => (
-          <div
-            key={index}
-            className={`absolute inset-0 transition-opacity duration-1000 ${
-              index === currentImageIndex ? 'opacity-100' : 'opacity-0'
-            }`}
-            style={{
-              backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.3)), url('${image}')`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              backgroundRepeat: 'no-repeat',
-              animation: index === currentImageIndex ? 'zoom-in 4s ease-in-out' : 'none',
-            }}
-          />
-        ))}
-        
-        {/* Content */}
-        <div className="container mx-auto max-w-4xl relative z-10 h-full flex flex-col justify-center">
-          <h2 className="text-3xl md:text-5xl font-bold text-white mb-6 drop-shadow-2xl">
-            Hilf mit, deine Stadt sauber zu halten!
-          </h2>
-          <p className="text-lg text-white mb-8 max-w-2xl mx-auto drop-shadow-lg">
-            Melde überfüllte oder beschädigte Mülleimer schnell und einfach. 
-            Gemeinsam sorgen wir für eine saubere und lebenswerte Stadt.
-          </p>
-          <Button 
-            onClick={() => setCurrentView('report')}
-            className="bg-green-500 hover:bg-green-600 text-white px-8 py-3 text-lg rounded-full shadow-lg transform transition hover:scale-105 font-semibold mx-auto"
-          >
-            Mülleimer melden <ArrowRight className="ml-2 w-5 h-5" />
-          </Button>
-        </div>
-
-        {/* Slideshow Indicators */}
-        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2 z-20">
-          {cityImages.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => setCurrentImageIndex(index)}
-              className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                index === currentImageIndex 
-                  ? 'bg-white shadow-lg' 
-                  : 'bg-white/50 hover:bg-white/80'
-              }`}
-            />
-          ))}
-        </div>
-      </section>
-
-      {/* How it works */}
-      <section className="px-4 py-12 bg-white">
-        <div className="container mx-auto max-w-4xl">
-          <h3 className="text-2xl font-bold text-center text-gray-800 mb-12">
-            So funktioniert's – in nur 3 Schritten
-          </h3>
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Camera className="w-8 h-8 text-green-600" />
-              </div>
-              <h4 className="font-semibold mb-2">1. Foto machen</h4>
-              <p className="text-gray-600">Fotografiere den problematischen Mülleimer</p>
-            </div>
-            <div className="text-center">
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <MapPin className="w-8 h-8 text-blue-600" />
-              </div>
-              <h4 className="font-semibold mb-2">2. Standort senden</h4>
-              <p className="text-gray-600">Automatische GPS-Erkennung oder manuelle Eingabe</p>
-            </div>
-            <div className="text-center">
-              <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle className="w-8 h-8 text-purple-600" />
-              </div>
-              <h4 className="font-semibold mb-2">3. Meldung absenden</h4>
-              <p className="text-gray-600">Fertig! Die Stadtreinigung wird informiert</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Impact Counter with Animation */}
-      <section className="px-4 py-12 bg-green-50">
-        <div className="container mx-auto max-w-2xl text-center">
-          <h3 className="text-2xl font-bold text-green-800 mb-4">Unser gemeinsamer Erfolg</h3>
-          <div className="bg-white rounded-xl p-8 shadow-sm">
-            <div className="text-4xl font-bold text-green-600 mb-2 transition-all duration-300">
-              {statsLoading ? '...' : displayCount.toLocaleString('de-DE')}
-            </div>
-            <p className="text-gray-600">Mülleimer bereits gemeldet</p>
-            <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <div className="font-semibold text-blue-600">
-                  {statsLoading ? '...' : statistics.processed_reports.toLocaleString('de-DE')}
-                </div>
-                <div className="text-gray-500">Bereits bearbeitet</div>
-              </div>
-              <div>
-                <div className="font-semibold text-orange-600">
-                  {statsLoading ? '...' : statistics.in_progress_reports.toLocaleString('de-DE')}
-                </div>
-                <div className="text-gray-500">In Bearbeitung</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-    </div>
-  );
-
-  const renderProducts = () => (
-    <div className="min-h-screen bg-gray-50">
-      {renderHeader()}
-      
-      {/* Hero Section */}
-      <section className="px-4 py-16 bg-gradient-to-br from-blue-600 to-green-600 text-white">
-        <div className="container mx-auto max-w-4xl text-center">
-          <h1 className="text-4xl md:text-5xl font-bold mb-6">
-            Intelligente Sensorik für eine saubere Stadt
-          </h1>
-          <p className="text-xl md:text-2xl mb-8 opacity-90">
-            Automatische Füllstandsmessung für eine effiziente Müllentsorgung.
-          </p>
-          <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center mx-auto">
-            <Zap className="w-12 h-12 text-white" />
-          </div>
-        </div>
-      </section>
-
-      {/* Product Highlights */}
-      <section className="px-4 py-16 bg-white">
-        <div className="container mx-auto max-w-6xl">
-          <h2 className="text-3xl font-bold text-center text-gray-800 mb-12">
-            Produkthighlights
-          </h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <Card className="text-center">
-              <CardHeader>
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <CheckCircle className="w-8 h-8 text-green-600" />
-                </div>
-                <CardTitle>Kompakte Bauweise</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600">
-                  Kleiner Formfaktor - passt in jeden Mülleimer ohne störende Auffälligkeit.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="text-center">
-              <CardHeader>
-                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Battery className="w-8 h-8 text-blue-600" />
-                </div>
-                <CardTitle>Batteriebetrieben</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600">
-                  Langlebige Batterien für jahrelangen wartungsfreien Betrieb.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="text-center">
-              <CardHeader>
-                <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Wifi className="w-8 h-8 text-purple-600" />
-                </div>
-                <CardTitle>Drahtlose Übertragung</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600">
-                  NB-IoT oder Wi-Fi Konnektivität für zuverlässige Datenübertragung.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="text-center">
-              <CardHeader>
-                <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Database className="w-8 h-8 text-orange-600" />
-                </div>
-                <CardTitle>Backend-Integration</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600">
-                  Direkte Datenübertragung an das CleanCity Backend-System.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="text-center">
-              <CardHeader>
-                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Monitor className="w-8 h-8 text-red-600" />
-                </div>
-                <CardTitle>API-Schnittstelle</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600">
-                  Nahtlose Verbindung zu öffentlichen Service-Dashboards.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="text-center">
-              <CardHeader>
-                <div className="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Zap className="w-8 h-8 text-teal-600" />
-                </div>
-                <CardTitle>Intelligente Sensoren</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600">
-                  Präzise Füllstandsmessung mit fortschrittlicher Sensortechnologie.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      {/* Demo Section */}
-      <section className="px-4 py-16 bg-green-50">
-        <div className="container mx-auto max-w-4xl text-center">
-          <Card className="bg-white shadow-lg">
-            <CardHeader>
-              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Leaf className="w-10 h-10 text-green-600" />
-              </div>
-              <CardTitle className="text-2xl">Pilotprojekt in Nürnberg</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-lg text-gray-600 mb-6">
-                Sensor bald verfügbar – CleanCity testet aktuell erste Pilotgeräte in Nürnberg.
-              </p>
-              <p className="text-gray-500 mb-8">
-                Unsere intelligenten Sensoren werden in den kommenden Monaten in ausgewählten 
-                Stadtteilen getestet, um die Effizienz der Müllentsorgung zu optimieren.
-              </p>
-              <Button 
-                className="bg-green-500 hover:bg-green-600 text-white px-8 py-3 text-lg rounded-full"
-                onClick={() => window.location.href = 'mailto:info@cleancity.de?subject=Interesse an CleanCity Sensoren'}
-              >
-                Mehr erfahren
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </section>
-    </div>
-  );
-
-  const renderReportForm = () => (
+  // Updated Karte view with complete form layout
+  const renderKarte = () => (
     <div className="min-h-screen bg-gray-50">
       {renderHeader()}
       
       <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-2xl text-green-800 flex items-center">
-              <Upload className="w-6 h-6 mr-2" />
-              Mülleimer melden
-            </CardTitle>
-            <p className="text-gray-600">
-              Helfen Sie uns, problematische Mülleimer schnell zu identifizieren
-            </p>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Enhanced Location Input with Integrated Map */}
-              <EnhancedLocationPicker
-                value={formData.location}
-                onChange={handleLocationChange}
-                onPartnerMunicipalityChange={handlePartnerMunicipalityChange}
-                onWasteBinSelect={handleWasteBinSelect}
-                coordinates={locationCoordinates}
-              />
-
-              {/* Waste Bin ID Display Field */}
-              {formData.wasteBinId && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    🗑️ Ausgewählter Mülleimer
-                  </label>
+        <h1 className="text-2xl font-bold mb-6 text-center text-green-800">
+          🗺️ Interaktive Mülleimer-Karte Nürnberg
+        </h1>
+        
+        <Card className="bg-white shadow-lg">
+          <CardContent className="p-6">
+            <form onSubmit={handleKarteSubmit} className="space-y-6">
+              
+              {/* 1. Address Section */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  📍 Adresse
+                </label>
+                <div className="flex gap-2">
                   <Input
                     type="text"
-                    value={`Mülleimer ID: ${formData.wasteBinId}`}
-                    readOnly
-                    className="bg-blue-50 border-blue-200 text-blue-800 font-medium"
+                    value={karteFormData.address}
+                    onChange={(e) => setKarteFormData(prev => ({ ...prev, address: e.target.value }))}
+                    placeholder="Adresse eingeben..."
+                    className="flex-1"
                   />
-                </div>
-              )}
-
-              {/* Partner Municipality Display */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  🏛️ Partner Stadtverwaltung
-                </label>
-                <Select 
-                  value={formData.partnerMunicipality} 
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, partnerMunicipality: value }))}
-                  disabled={true}
-                >
-                  <SelectTrigger className={formData.partnerMunicipality ? "bg-green-50 border-green-200" : "bg-gray-100"}>
-                    <SelectValue placeholder={
-                      formData.partnerMunicipality 
-                        ? partnerMunicipalities.find(p => p.value === formData.partnerMunicipality)?.label
-                        : "Wird automatisch basierend auf der Adresse ausgewählt"
-                    } />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {partnerMunicipalities.map((municipality) => (
-                      <SelectItem key={municipality.value} value={municipality.value}>
-                        {municipality.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {!formData.partnerMunicipality && formData.location && (
-                  <p className="text-xs text-orange-600 mt-1 bg-orange-50 p-2 rounded">
-                    ⚠️ Leider unterstützen wir derzeit nur Meldungen in ausgewählten Partnerstädten.
-                  </p>
-                )}
-                {formData.partnerMunicipality && (
-                  <p className="text-xs text-green-600 mt-1 bg-green-50 p-2 rounded">
-                    ✅ Zuständige Stadtverwaltung automatisch erkannt
-                  </p>
-                )}
-              </div>
-
-              {/* Foto Upload */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  📷 Foto (optional)
-                </label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={handlePhotoUpload}
-                    className="hidden"
-                    id="photo-upload"
-                  />
-                  <label htmlFor="photo-upload" className="cursor-pointer">
-                    <Camera className="w-12 h-12 text-gray-400 mx-auto mb-2" />
-                    <p className="text-gray-600">
-                      {formData.photo ? formData.photo.name : 'Foto aufnehmen oder auswählen'}
-                    </p>
-                  </label>
+                  <Button 
+                    type="button"
+                    onClick={handleGetGPSLocation}
+                    disabled={isGettingLocation}
+                    variant="outline"
+                    className="px-4"
+                  >
+                    {isGettingLocation ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-500"></div>
+                    ) : (
+                      <Navigation className="w-4 h-4" />
+                    )}
+                  </Button>
                 </div>
               </div>
 
-              {/* Problem Type */}
+              {/* 2. Interactive Map */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Problem-Art *
+                  🗺️ Karte
+                </label>
+                <iframe 
+                  ref={mapIframeRef}
+                  id="map-iframe"
+                  src="https://routenplanung.vercel.app/nbg_wastebaskets_map.html"
+                  className="w-full h-[500px] border rounded-lg shadow-sm"
+                  title="Interaktive Mülleimer Karte"
+                />
+              </div>
+
+              {/* 3. Selected Waste Basket */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  🗑️ Ausgewählte Mülleimer ID:
+                </label>
+                <Input
+                  type="text"
+                  value={karteFormData.wasteBinId || 'Kein Mülleimer ausgewählt'}
+                  readOnly
+                  className="bg-gray-100"
+                />
+              </div>
+
+              {/* 4. Partner Stadtverwaltung */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  🏛️ Partner Stadtverwaltung:
                 </label>
                 <Select 
-                  value={formData.issueType} 
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, issueType: value }))}
+                  value={karteFormData.partnerCity} 
+                  onValueChange={(value) => setKarteFormData(prev => ({ ...prev, partnerCity: value }))}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Wählen Sie das Problem aus" />
+                    <SelectValue placeholder="Stadt auswählen" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="overfilled">🗑️ Überfüllt</SelectItem>
-                    <SelectItem value="broken">🔧 Beschädigt</SelectItem>
-                    <SelectItem value="smelly">💨 Stinkt</SelectItem>
-                    <SelectItem value="vandalized">⚠️ Vandalismus</SelectItem>
-                    <SelectItem value="missing">❌ Fehlt komplett</SelectItem>
+                    <SelectItem value="nuernberg">Nürnberg</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              {/* Comment */}
+              {/* 5. Foto Upload */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Zusätzliche Informationen (optional)
+                  📷 Foto (optional):
+                </label>
+                <Input
+                  type="file"
+                  accept=".jpg,.jpeg,.png"
+                  onChange={handleKartePhotoUpload}
+                  className="file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
+                />
+                {karteFormData.photo && (
+                  <p className="text-xs text-green-600 mt-1">Foto hochgeladen: {karteFormData.photo.name}</p>
+                )}
+              </div>
+
+              {/* 6. Problem Art */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  ⚠️ Problem Art: <span className="text-red-500">*</span>
+                </label>
+                <Select 
+                  value={karteFormData.problemType} 
+                  onValueChange={(value) => setKarteFormData(prev => ({ ...prev, problemType: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Problem auswählen" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="overfilled">Überfüllt</SelectItem>
+                    <SelectItem value="broken">Beschädigt</SelectItem>
+                    <SelectItem value="vandalized">Vandalismus</SelectItem>
+                    <SelectItem value="smelly">Stinkt</SelectItem>
+                    <SelectItem value="missing">Fehlt komplett</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* 7. Zusätzliche Informationen */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  📝 Zusätzliche Informationen (optional):
                 </label>
                 <Textarea
+                  value={karteFormData.additionalInfo}
+                  onChange={(e) => setKarteFormData(prev => ({ ...prev, additionalInfo: e.target.value }))}
                   placeholder="Beschreiben Sie das Problem genauer..."
-                  value={formData.comment}
-                  onChange={(e) => setFormData(prev => ({ ...prev, comment: e.target.value }))}
                   rows={3}
                 />
               </div>
 
-              {/* Submit Button */}
+              {/* 8. Submit Button */}
               <Button
                 type="submit"
-                disabled={isSubmitting || !canSubmitReport}
-                className={`w-full py-3 text-lg ${
-                  canSubmitReport 
-                    ? "bg-green-500 hover:bg-green-600" 
-                    : "bg-gray-300 cursor-not-allowed"
+                disabled={!karteFormData.wasteBinId || !karteFormData.problemType || isSubmitting}
+                className={`w-full py-3 text-lg font-semibold ${
+                  karteFormData.wasteBinId && karteFormData.problemType
+                    ? "bg-green-500 hover:bg-green-600 text-white"
+                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
                 }`}
               >
                 {isSubmitting ? (
@@ -971,98 +611,23 @@ const Index = () => {
                     Wird gesendet...
                   </div>
                 ) : (
-                  canSubmitReport ? 'Meldung absenden' : 'Standort in Partnerstadt erforderlich'
+                  'Mülleimer melden'
                 )}
               </Button>
             </form>
+
+            {/* Instructions */}
+            <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h3 className="font-semibold text-blue-800 mb-2">💡 So funktioniert's:</h3>
+              <ol className="text-sm text-blue-700 space-y-1 list-decimal list-inside">
+                <li>Geben Sie eine Adresse ein oder nutzen Sie den GPS-Button</li>
+                <li>Klicken Sie auf einen Mülleimer-Marker in der Karte</li>
+                <li>Wählen Sie die Problem-Art aus</li>
+                <li>Klicken Sie "Mülleimer melden"</li>
+              </ol>
+            </div>
           </CardContent>
         </Card>
-      </div>
-    </div>
-  );
-
-  // Updated Karte view with interactive features and WasteBasket ID field
-  const renderKarte = () => (
-    <div className="min-h-screen bg-gray-50">
-      {renderHeader()}
-      
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
-        <h1 className="text-2xl font-bold mb-6 text-center text-green-800">
-          🗺️ Interaktive Mülleimer-Karte Nürnberg
-        </h1>
-        
-        <div className="bg-white rounded-lg shadow-lg p-6 space-y-6">
-          {/* Address Search Field */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              📍 Adresse eingeben
-            </label>
-            <form onSubmit={handleAddressSubmit} className="flex gap-2">
-              <Input
-                type="text"
-                value={mapAddress}
-                onChange={(e) => setMapAddress(e.target.value)}
-                placeholder="Adresse eingeben..."
-                className="flex-1"
-              />
-              <Button type="submit" disabled={!mapAddress.trim()}>
-                <MapPin className="w-4 h-4 mr-2" />
-                Navigieren
-              </Button>
-            </form>
-          </div>
-
-          {/* Interactive Map */}
-          <div className="relative">
-            <iframe 
-              ref={mapIframeRef}
-              id="map-iframe"
-              src="https://routenplanung.vercel.app/nbg_wastebaskets_map.html"
-              className="w-full h-96 md:h-[500px] border rounded-lg shadow-sm"
-              title="Interaktive Mülleimer Karte"
-              style={{ minHeight: '400px' }}
-            />
-          </div>
-
-          {/* NEW: Simple text field below map */}
-          <div className="mt-4">
-            <label className="block text-sm font-medium mb-2">
-              Ausgewählter Mülleimer:
-            </label>
-            <input 
-              type="text"
-              placeholder="Kein Mülleimer ausgewählt"
-              readOnly
-              className="w-full p-2 border rounded bg-gray-100"
-            />
-          </div>
-
-          {/* Action Button */}
-          <div className="flex justify-center">
-            <Button
-              onClick={handleReportWasteBasket}
-              disabled={!selectedWasteBasketId}
-              className={`px-8 py-3 text-lg font-semibold ${
-                selectedWasteBasketId
-                  ? 'bg-green-500 hover:bg-green-600 text-white'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
-            >
-              {selectedWasteBasketId ? 'Mülleimer melden' : 'Zuerst Mülleimer auswählen'}
-            </Button>
-          </div>
-
-          {/* Instructions */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h3 className="font-semibold text-blue-800 mb-2">💡 So funktioniert's:</h3>
-            <ol className="text-sm text-blue-700 space-y-1 list-decimal list-inside">
-              <li>Geben Sie eine Adresse ein und klicken Sie "Navigieren" um zur gewünschten Stelle zu gelangen</li>
-              <li>Klicken Sie auf einen Mülleimer-Marker in der Karte</li>
-              <li>Die WasteBasket ID wird automatisch angezeigt</li>
-              <li>Klicken Sie "Mülleimer melden" um das Meldeformular zu öffnen</li>
-            </ol>
-          </div>
-        </div>
       </div>
     </div>
   );
