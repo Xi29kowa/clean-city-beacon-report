@@ -92,12 +92,10 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
     const value = e.target.value;
     // Only allow numeric characters
     if (value === '' || /^\d+$/.test(value)) {
-      console.log('✏️ CRITICAL - Manual waste bin ID change:', value);
+      console.log('✏️ Manual waste bin ID change:', value);
       setWasteBinId(value);
-      
-      // CRITICAL: ALWAYS call the parent callback when user types manually
       if (onWasteBinIdChange) {
-        console.log('📤 CRITICAL - Calling onWasteBinIdChange from manual input with:', value);
+        console.log('📤 Calling onWasteBinIdChange from manual input with:', value);
         onWasteBinIdChange(value);
       }
     }
@@ -145,7 +143,7 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
         center={mapCenter}
       />
 
-      {/* CRITICAL MÜLLEIMER ID FIELD - MUST WORK */}
+      {/* Mülleimer ID Field - with improved debugging */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
           🗑️ Mülleimer ID <span className="text-red-500">*</span>
@@ -163,10 +161,6 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
         <p className="text-xs text-gray-500 mt-1">
           💡 Tipp: Klicken Sie auf einen Mülleimer-Marker auf der Karte, um die ID automatisch zu übernehmen
           {wasteBinId && <span className="text-green-600 font-medium"> ✓ ID {wasteBinId} ausgewählt</span>}
-        </p>
-        {/* DEBUG INFO - zeigt aktuellen Wert */}
-        <p className="text-xs text-blue-600 mt-1">
-          🔧 DEBUG: Aktueller Wert = "{wasteBinId}" (Länge: {wasteBinId.length})
         </p>
       </div>
 
