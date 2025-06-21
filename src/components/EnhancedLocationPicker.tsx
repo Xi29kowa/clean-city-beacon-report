@@ -147,20 +147,23 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
         />
       </div>
 
-      {/* Partner Stadtverwaltung Display */}
-      {selectedPartnerMunicipality && (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            🏛️ Partner Stadtverwaltung
-          </label>
-          <Input
-            type="text"
-            value={getMunicipalityLabel(selectedPartnerMunicipality)}
-            readOnly
-            className="w-full bg-green-50 border-green-200 text-green-800 font-medium"
-          />
-        </div>
-      )}
+      {/* Partner Stadtverwaltung Display - Always shown */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          🏛️ Partner Stadtverwaltung
+        </label>
+        <Input
+          type="text"
+          value={selectedPartnerMunicipality ? getMunicipalityLabel(selectedPartnerMunicipality) : ''}
+          readOnly
+          placeholder="Wird automatisch basierend auf der Adresse ausgewählt"
+          className={`w-full ${
+            selectedPartnerMunicipality 
+              ? 'bg-green-50 border-green-200 text-green-800 font-medium' 
+              : 'bg-gray-50 border-gray-200 text-gray-500'
+          }`}
+        />
+      </div>
     </div>
   );
 };
