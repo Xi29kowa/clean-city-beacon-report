@@ -112,7 +112,7 @@ const UserAccount = () => {
       }
 
       if (data) {
-        console.log('Reports loaded:', data);
+        console.log('Reports loaded with waste_bin_id:', data);
         // Generate case numbers for reports
         const reportsWithCaseNumbers = data.map(report => ({
           ...report,
@@ -220,7 +220,14 @@ const UserAccount = () => {
   };
 
   const deleteReport = async (reportId: string) => {
-    console.log('Attempting to delete report:', reportId);
+    console.log('🗑️ DELETING REPORT:', reportId);
+    
+    // Immediately remove from UI state FIRST
+    const originalReports = [...reports];
+    const updatedReports = reports.filter(report => report.id !== reportId);
+    setReports(updatedReports);
+    console.log('✅ Immediately removed from UI, new count:', updatedReports.length);
+    
     try {
       const { error } = await supabase
         .from('bin_reports')
@@ -229,7 +236,9 @@ const UserAccount = () => {
         .eq('user_id', user?.id);
 
       if (error) {
-        console.error('Error deleting report:', error);
+        console.error('❌ Database deletion failed:', error);
+        // Restore original state on error
+        setReports(originalReports);
         toast({
           title: "Fehler",
           description: "Fehler beim Löschen der Meldung.",
@@ -238,20 +247,15 @@ const UserAccount = () => {
         return;
       }
 
-      console.log('Report deleted successfully');
+      console.log('✅ Report successfully deleted from database');
       toast({
         title: "Meldung gelöscht",
         description: "Die Meldung wurde erfolgreich gelöscht.",
       });
-
-      // Remove the report from the local state immediately and persistently
-      setReports(prev => {
-        const updatedReports = prev.filter(report => report.id !== reportId);
-        console.log('Updated reports after deletion:', updatedReports);
-        return updatedReports;
-      });
     } catch (error) {
-      console.error('Error deleting report:', error);
+      console.error('❌ Unexpected error during deletion:', error);
+      // Restore original state on error
+      setReports(originalReports);
       toast({
         title: "Fehler",
         description: "Fehler beim Löschen der Meldung.",
@@ -329,12 +333,96 @@ const UserAccount = () => {
         </Button>
       </div>
 
-      <Tabs defaultValue="profile" className="space-y-6">
+      <Tabs defaultValue="reports" className="space-y-6">
         <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="reports">Meine Meldungen</TabsTrigger>
           <TabsTrigger value="profile">Profil</TabsTrigger>
           <TabsTrigger value="security">Sicherheit</TabsTrigger>
-          <TabsTrigger value="reports">Meine Meldungen</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="reports">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <FileText className="w-5 h-5" />
+                <span>Meine Meldungen ({reports.length})</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {reports.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                  <p>Sie haben noch keine Mülleimer gemeldet.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {reports.map((report) => (
+                    <div key={report.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <h3 className="font-semibold text-lg">
+                            Fallnummer: {report.case_number}
+                          </h3>
+                          <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>
+                            {getStatusText(report.status)}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <div className="text-right text-sm text-gray-500">
+                            <div className="flex items-center space-x-1">
+                              <Calendar className="w-4 h-4" />
+                              <span>{formatDate(report.created_at)}</span>
+                            </div>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => deleteReport(report.id)}
+                            className="text-red-600 border-red-200 hover:bg-red-50"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        <div className="flex items-start space-x-2">
+                          <MapPin className="w-4 h-4 text-gray-400 mt-0.5" />
+                          <div>
+                            <p className="font-medium">Standort:</p>
+                            <p className="text-gray-600">{report.location}</p>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="font-medium">Problem:</p>
+                          <p className="text-gray-600">{getIssueTypeText(report.issue_type)}</p>
+                        </div>
+                        <div>
+                          <p className="font-medium">Mülleimer-ID:</p>
+                          <p className="text-gray-600 font-mono bg-gray-100 px-2 py-1 rounded">
+                            {report.waste_bin_id || 'Nicht verfügbar'}
+                          </p>
+                        </div>
+                        {report.partner_municipality && (
+                          <div>
+                            <p className="font-medium">Gemeinde:</p>
+                            <p className="text-gray-600">{report.partner_municipality}</p>
+                          </div>
+                        )}
+                        {report.comment && (
+                          <div className="md:col-span-2">
+                            <p className="font-medium">Kommentar:</p>
+                            <p className="text-gray-600">{report.comment}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="profile">
           <Card>
@@ -460,90 +548,6 @@ const UserAccount = () => {
               >
                 {isUpdating ? 'Ändern...' : 'Passwort ändern'}
               </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="reports">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center space-x-2">
-                <FileText className="w-5 h-5" />
-                <span>Meine Meldungen ({reports.length})</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {reports.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                  <p>Sie haben noch keine Mülleimer gemeldet.</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {reports.map((report) => (
-                    <div key={report.id} className="border rounded-lg p-4 hover:bg-gray-50">
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <h3 className="font-semibold text-lg">
-                            Fallnummer: {report.case_number}
-                          </h3>
-                          <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>
-                            {getStatusText(report.status)}
-                          </span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <div className="text-right text-sm text-gray-500">
-                            <div className="flex items-center space-x-1">
-                              <Calendar className="w-4 h-4" />
-                              <span>{formatDate(report.created_at)}</span>
-                            </div>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => deleteReport(report.id)}
-                            className="text-red-600 border-red-200 hover:bg-red-50"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                        <div className="flex items-start space-x-2">
-                          <MapPin className="w-4 h-4 text-gray-400 mt-0.5" />
-                          <div>
-                            <p className="font-medium">Standort:</p>
-                            <p className="text-gray-600">{report.location}</p>
-                          </div>
-                        </div>
-                        <div>
-                          <p className="font-medium">Problem:</p>
-                          <p className="text-gray-600">{getIssueTypeText(report.issue_type)}</p>
-                        </div>
-                        <div>
-                          <p className="font-medium">Mülleimer-ID:</p>
-                          <p className="text-gray-600 font-mono bg-gray-100 px-2 py-1 rounded">
-                            {report.waste_bin_id || 'Nicht verfügbar'}
-                          </p>
-                        </div>
-                        {report.partner_municipality && (
-                          <div>
-                            <p className="font-medium">Gemeinde:</p>
-                            <p className="text-gray-600">{report.partner_municipality}</p>
-                          </div>
-                        )}
-                        {report.comment && (
-                          <div className="md:col-span-2">
-                            <p className="font-medium">Kommentar:</p>
-                            <p className="text-gray-600">{report.comment}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </CardContent>
           </Card>
         </TabsContent>
