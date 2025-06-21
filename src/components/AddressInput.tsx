@@ -31,15 +31,16 @@ const AddressInput: React.FC<AddressInputProps> = ({
     if (query.length < 3) return [];
 
     try {
-      // Use multiple search strategies for better results
+      // Focused search for German addresses with multiple strategies
       const searchStrategies = [
-        // Strategy 1: Exact search with Nürnberg context
+        // Strategy 1: Exact search with city context
         {
-          q: `${query}, Nürnberg, Deutschland`,
+          q: `${query}, Deutschland`,
           bounded: '1',
-          viewbox: '10.9,49.6,11.2,49.3' // Nürnberg area
+          viewbox: '5.8,47.2,15.0,55.0', // Germany bounds
+          countrycodes: 'DE'
         },
-        // Strategy 2: Broader Germany search with high limit
+        // Strategy 2: Broader search
         {
           q: query,
           countrycodes: 'DE',
@@ -81,31 +82,30 @@ const AddressInput: React.FC<AddressInputProps> = ({
         }
       }
 
-      // Filter and deduplicate results
+      // Filter and process results
       const filteredResults = allResults
         .filter((item: any) => {
-          // Filter for address-like results
+          // Filter for real addresses in Germany
           const hasValidAddress = item.address && (
             item.address.house_number || 
             item.address.road || 
             item.address.pedestrian ||
             item.address.residential ||
-            item.type === 'house'
+            ['house', 'building', 'address'].includes(item.type)
           );
+          
+          const isGermany = item.address?.country_code === 'de';
           
           const isRelevantType = [
             'house', 'building', 'address', 'residential',
-            'commercial', 'retail', 'office'
+            'commercial', 'retail', 'office', 'place'
           ].includes(item.type) || 
           ['place', 'highway', 'amenity', 'shop'].includes(item.class);
 
-          // Priority for German results
-          const isGermany = item.address?.country_code === 'de';
-
-          return hasValidAddress && isRelevantType && isGermany;
+          return hasValidAddress && isGermany && isRelevantType;
         })
         .map((item: any) => {
-          // Create detailed display names
+          // Build comprehensive address with postal code
           let displayName = '';
           let shortName = '';
           
@@ -113,7 +113,7 @@ const AddressInput: React.FC<AddressInputProps> = ({
             const parts = [];
             const shortParts = [];
             
-            // Build address components
+            // Street and house number
             if (item.address.house_number && item.address.road) {
               const streetAddress = `${item.address.road} ${item.address.house_number}`;
               parts.push(streetAddress);
@@ -123,21 +123,20 @@ const AddressInput: React.FC<AddressInputProps> = ({
               shortParts.push(item.address.road);
             }
             
-            // Add postal code
+            // Postal code - always include if available
             if (item.address.postcode) {
               parts.push(item.address.postcode);
+              shortParts.push(item.address.postcode);
             }
             
-            // Add city/town
+            // City/town
             const city = item.address.city || item.address.town || item.address.village;
             if (city) {
               parts.push(city);
-              if (!shortParts.some(p => p.includes(city))) {
-                shortParts.push(city);
-              }
+              shortParts.push(city);
             }
             
-            // Add state for clarity
+            // State for clarity (only in full display name)
             if (item.address.state && item.address.state !== city) {
               parts.push(item.address.state);
             }
@@ -155,27 +154,27 @@ const AddressInput: React.FC<AddressInputProps> = ({
             importance: item.importance || 0
           };
         })
-        // Remove duplicates based on coordinates
+        // Remove duplicates
         .filter((item: any, index: number, self: any[]) => {
           return index === self.findIndex(t => 
             Math.abs(parseFloat(t.lat) - parseFloat(item.lat)) < 0.0001 &&
             Math.abs(parseFloat(t.lon) - parseFloat(item.lon)) < 0.0001
           );
         })
-        // Sort by importance and relevance
+        // Sort by relevance
         .sort((a: any, b: any) => {
-          // Prioritize results with house numbers
+          // Prioritize results with house numbers and postal codes
           const aHasHouseNumber = a.address?.house_number ? 1 : 0;
           const bHasHouseNumber = b.address?.house_number ? 1 : 0;
+          const aHasPostcode = a.address?.postcode ? 1 : 0;
+          const bHasPostcode = b.address?.postcode ? 1 : 0;
           
-          if (aHasHouseNumber !== bHasHouseNumber) {
-            return bHasHouseNumber - aHasHouseNumber;
-          }
+          const aScore = aHasHouseNumber + aHasPostcode + (a.importance || 0);
+          const bScore = bHasHouseNumber + bHasPostcode + (b.importance || 0);
           
-          // Then sort by importance
-          return (b.importance || 0) - (a.importance || 0);
+          return bScore - aScore;
         })
-        .slice(0, 8); // Limit to 8 suggestions
+        .slice(0, 8);
 
       return filteredResults;
     } catch (error) {
@@ -187,12 +186,10 @@ const AddressInput: React.FC<AddressInputProps> = ({
   const handleAddressInput = (inputValue: string) => {
     onChange(inputValue);
     
-    // Clear existing timer
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
     }
     
-    // Set new timer for debounced search
     debounceTimerRef.current = setTimeout(async () => {
       if (inputValue.length >= 3) {
         setIsSearching(true);
@@ -212,14 +209,14 @@ const AddressInput: React.FC<AddressInputProps> = ({
     const lat = parseFloat(suggestion.lat);
     const lng = parseFloat(suggestion.lon);
     
-    // Use the short name for better display, fallback to full display name
+    // Use the complete address with postal code
     const addressToShow = suggestion.short_name || suggestion.display_name;
     
     onChange(addressToShow, { lat, lng });
     setShowSuggestions(false);
     setAddressSuggestions([]);
     
-    // Navigate map to selected location with street-level zoom
+    // Immediately navigate map to selected location
     if (onLocationSelect) {
       onLocationSelect({ lat, lng });
     }

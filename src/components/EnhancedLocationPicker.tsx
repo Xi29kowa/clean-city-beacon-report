@@ -34,14 +34,24 @@ const EnhancedLocationPicker: React.FC<LocationPickerProps> = ({
   };
 
   const handleLocationSelect = (coordinates: { lat: number; lng: number }) => {
+    // Immediately update map center to navigate to the selected location
     setMapCenter(coordinates);
+  };
+
+  const handleAddressChange = (location: string, coordinates?: { lat: number; lng: number }) => {
+    onChange(location, coordinates);
+    
+    // If coordinates are provided, navigate the map immediately
+    if (coordinates) {
+      setMapCenter(coordinates);
+    }
   };
 
   return (
     <div className="space-y-4">
       <AddressInput
         value={value}
-        onChange={onChange}
+        onChange={handleAddressChange}
         onPartnerMunicipalityChange={onPartnerMunicipalityChange}
         onLocationSelect={handleLocationSelect}
       />
