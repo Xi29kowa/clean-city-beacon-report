@@ -20,7 +20,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
       console.log('🎯 Received message from:', event.origin);
       console.log('📨 Message data:', event.data);
       
-      // Accept messages from multiple possible origins
+      // Accept messages from multiple possible origins, including Lovable domains
       const allowedOrigins = [
         'https://routenplanung.vercel.app',
         'http://localhost:3000',
@@ -28,10 +28,16 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
         'https://nbg-wastebaskets-map.vercel.app'
       ];
       
-      if (!allowedOrigins.includes(event.origin)) {
+      // Also allow any Lovable domain
+      const isLovableDomain = event.origin.includes('.lovable.app');
+      const isAllowedOrigin = allowedOrigins.includes(event.origin) || isLovableDomain;
+      
+      if (!isAllowedOrigin) {
         console.log('❌ Message rejected from origin:', event.origin);
         return;
       }
+      
+      console.log('✅ Message accepted from origin:', event.origin);
       
       if (event.data.type === 'mapReady') {
         console.log('✅ Map is ready!');
@@ -96,6 +102,17 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
         
         if (onWasteBinSelect) {
           console.log('📤 Calling onWasteBinSelect from generic click:', binId);
+          onWasteBinSelect(binId);
+        }
+      }
+
+      // Handle any message that contains wastebasket data
+      if (event.data.wasteBasketId || event.data.binId || event.data.id) {
+        const binId = event.data.wasteBasketId || event.data.binId || event.data.id;
+        console.log('🔍 Found potential bin ID in message:', binId, 'Type:', event.data.type);
+        
+        if (onWasteBinSelect && binId) {
+          console.log('📤 Calling onWasteBinSelect with found binId:', binId);
           onWasteBinSelect(binId);
         }
       }
