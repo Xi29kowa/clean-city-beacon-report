@@ -54,6 +54,16 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
     }
   };
 
+  const handleLocationSelect = (coordinates: { lat: number; lng: number }) => {
+    console.log('Location selected, setting map center to:', coordinates);
+    // Convert to plain object to avoid reactive wrapper issues
+    const plainCoords = {
+      lat: Number(coordinates.lat),
+      lng: Number(coordinates.lng)
+    };
+    setMapCenter(plainCoords);
+  };
+
   const handleAddressChange = (location: string, coordinates?: { lat: number; lng: number }) => {
     console.log('Address changed - location:', location, 'coordinates:', coordinates);
     onChange(location, coordinates);
@@ -87,6 +97,7 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
         value={value}
         onChange={handleAddressChange}
         onPartnerMunicipalityChange={onPartnerMunicipalityChange}
+        onLocationSelect={handleLocationSelect}
       />
 
       {selectedWasteBin && (
