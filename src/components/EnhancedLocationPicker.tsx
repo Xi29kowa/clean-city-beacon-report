@@ -32,6 +32,8 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
     // Automatically set the WasteBasket ID in the input field
     console.log('📝 Setting waste bin ID to:', binId);
     setWasteBinId(binId);
+    
+    // IMPORTANT: Call the parent callback immediately
     if (onWasteBinIdChange) {
       console.log('📤 Calling onWasteBinIdChange with:', binId);
       onWasteBinIdChange(binId);
@@ -140,7 +142,7 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
         center={mapCenter}
       />
 
-      {/* Mülleimer ID Field */}
+      {/* Mülleimer ID Field - with improved debugging */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
           🗑️ Mülleimer ID <span className="text-red-500">*</span>
@@ -150,13 +152,14 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
           value={wasteBinId}
           onChange={handleWasteBinIdChange}
           placeholder="Nur Zahlen eingeben oder auf Karte klicken..."
-          className="w-full"
+          className={`w-full ${wasteBinId ? 'bg-green-50 border-green-200' : ''}`}
           required
           pattern="[0-9]*"
           inputMode="numeric"
         />
         <p className="text-xs text-gray-500 mt-1">
           💡 Tipp: Klicken Sie auf einen Mülleimer-Marker auf der Karte, um die ID automatisch zu übernehmen
+          {wasteBinId && <span className="text-green-600 font-medium"> ✓ ID {wasteBinId} ausgewählt</span>}
         </p>
       </div>
 
