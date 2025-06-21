@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Camera, MapPin, Leaf, CheckCircle, ArrowRight, Upload, Menu, X, Info, Shield, Phone, User, LogIn, Share2, Copy, Wifi, Battery, Zap, Database, Monitor, LogOut } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import LocationPicker from "@/components/LocationPicker";
 import { useStatistics } from "@/hooks/useStatistics";
 import { useBinReports } from "@/hooks/useBinReports";
 import EnhancedLocationPicker from "@/components/EnhancedLocationPicker";
+import { useNavigate } from 'react-router-dom';
 
 const Index = () => {
   const [currentView, setCurrentView] = useState('home');
@@ -46,6 +48,7 @@ const Index = () => {
   const inputRef = useRef(null);
   const { toast } = useToast();
   const { user, logout, isLoggedIn } = useAuth();
+  const navigate = useNavigate();
 
   // Use the statistics hook
   const { statistics, loading: statsLoading } = useStatistics();
@@ -330,6 +333,10 @@ const Index = () => {
     });
   };
 
+  const handleUserAccountClick = () => {
+    navigate('/account');
+  };
+
   const renderHeader = () => (
     <header className="bg-white shadow-sm border-b border-green-100 sticky top-0 z-50">
       <div className="container mx-auto px-4 py-4">
@@ -415,10 +422,13 @@ const Index = () => {
           <div className="hidden md:flex items-center justify-end w-48 flex-shrink-0">
             {isLoggedIn ? (
               <div className="flex items-center space-x-3">
-                {/* User Profile Widget - Removed "Hallo," text */}
-                <div className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
+                {/* User Profile Widget - Clickable and without ! */}
+                <div 
+                  className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg cursor-pointer hover:bg-green-100 transition-colors"
+                  onClick={handleUserAccountClick}
+                >
                   <User className="w-5 h-5 text-green-600" />
-                  <span className="text-sm font-medium text-green-800">{user?.username}!</span>
+                  <span className="text-sm font-medium text-green-800">{user?.username}</span>
                 </div>
                 <Button
                   variant="outline"
@@ -527,10 +537,13 @@ const Index = () => {
             <div className="border-t border-gray-200 pt-4 space-y-2">
               {isLoggedIn ? (
                 <div className="space-y-2">
-                  {/* Mobile User Profile Widget - Removed "Hallo," text */}
-                  <div className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-lg">
+                  {/* Mobile User Profile Widget - Clickable and without ! */}
+                  <div 
+                    className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-lg cursor-pointer hover:bg-green-100 transition-colors"
+                    onClick={() => { handleUserAccountClick(); setShowMenu(false); }}
+                  >
                     <User className="w-5 h-5 text-green-600" />
-                    <span className="text-sm font-medium text-green-800">{user?.username}!</span>
+                    <span className="text-sm font-medium text-green-800">{user?.username}</span>
                   </div>
                   <Button
                     variant="ghost"
