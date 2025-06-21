@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { User, LogIn, UserPlus, X } from 'lucide-react';
+import { User, LogIn, UserPlus, X, Settings } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,23 +9,56 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { useAuth } from '@/contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 
 const UserDropdown = () => {
+  const { user, login, register, logout, isLoggedIn } = useAuth();
+  const navigate = useNavigate();
   const [showForm, setShowForm] = useState(false);
   const [formType, setFormType] = useState<'login' | 'register'>('login');
   const [formData, setFormData] = useState({
+    username: '',
     email: '',
     password: '',
     confirmPassword: ''
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleFormSubmit = (e: React.FormEvent) => {
+  const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle form submission here
-    console.log(`${formType} form submitted:`, formData);
-    setShowForm(false);
-    setFormData({ email: '', password: '', confirmPassword: '' });
+    setIsSubmitting(true);
+
+    try {
+      if (formType === 'register') {
+        if (formData.password !== formData.confirmPassword) {
+          alert('Passwörter stimmen nicht überein');
+          return;
+        }
+        const result = await register(formData.username, formData.email, formData.password);
+        if (result.success) {
+          setShowForm(false);
+          setFormData({ username: '', email: '', password: '', confirmPassword: '' });
+        } else {
+          alert(result.error || 'Registrierung fehlgeschlagen');
+        }
+      } else {
+        const result = await login(formData.email, formData.password);
+        if (result.success) {
+          setShowForm(false);
+          setFormData({ username: '', email: '', password: '', confirmPassword: '' });
+        } else {
+          alert(result.error || 'Anmeldung fehlgeschlagen');
+        }
+      }
+    } catch (error) {
+      console.error('Auth error:', error);
+      alert('Ein Fehler ist aufgetreten');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleInputChange = (field: string, value: string) => {
@@ -34,12 +67,15 @@ const UserDropdown = () => {
 
   const switchForm = (type: 'login' | 'register') => {
     setFormType(type);
-    setFormData({ email: '', password: '', confirmPassword: '' });
+    setFormData({ username: '', email: '', password: '', confirmPassword: '' });
   };
 
-  const handleForgotPassword = () => {
-    console.log('Forgot password clicked');
-    // TODO: Implement password reset functionality
+  const handleAccountClick = () => {
+    navigate('/account');
+  };
+
+  const handleLogout = () => {
+    logout();
   };
 
   if (showForm) {
@@ -71,6 +107,22 @@ const UserDropdown = () => {
           </div>
 
           <form onSubmit={handleFormSubmit} className="space-y-4">
+            {formType === 'register' && (
+              <div>
+                <Label htmlFor="username" className="text-sm font-medium text-gray-700">
+                  Benutzername
+                </Label>
+                <Input
+                  id="username"
+                  type="text"
+                  value={formData.username}
+                  onChange={(e) => handleInputChange('username', e.target.value)}
+                  className="mt-1"
+                  required
+                />
+              </div>
+            )}
+            
             <div>
               <Label htmlFor="email" className="text-sm font-medium text-gray-700">
                 E-Mail
@@ -118,22 +170,10 @@ const UserDropdown = () => {
             <Button
               type="submit"
               className="w-full bg-green-500 hover:bg-green-600 text-white font-medium py-2"
+              disabled={isSubmitting}
             >
-              {formType === 'login' ? 'Anmelden' : 'Registrieren'}
+              {isSubmitting ? 'Wird verarbeitet...' : (formType === 'login' ? 'Anmelden' : 'Registrieren')}
             </Button>
-
-            {formType === 'login' && (
-              <div className="text-center">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={handleForgotPassword}
-                  className="text-sm text-gray-600 hover:text-gray-800 p-0 h-auto font-normal underline"
-                >
-                  Passwort vergessen?
-                </Button>
-              </div>
-            )}
           </form>
           
           <div className="mt-4 text-center">
@@ -150,6 +190,40 @@ const UserDropdown = () => {
           </div>
         </div>
       </div>
+    );
+  }
+
+  if (isLoggedIn && user) {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 px-3 py-2 rounded-md"
+          >
+            <User className="w-5 h-5" />
+            <span className="hidden lg:inline text-sm font-medium">{user.username}</span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48 bg-white">
+          <DropdownMenuItem 
+            className="cursor-pointer"
+            onClick={handleAccountClick}
+          >
+            <Settings className="w-4 h-4 mr-2" />
+            Mein Konto
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem 
+            className="cursor-pointer text-red-600"
+            onClick={handleLogout}
+          >
+            <LogIn className="w-4 h-4 mr-2" />
+            Abmelden
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     );
   }
 

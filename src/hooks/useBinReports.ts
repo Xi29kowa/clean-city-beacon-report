@@ -1,6 +1,7 @@
 
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface BinReportData {
   location: string;
@@ -8,12 +9,19 @@ interface BinReportData {
   comment?: string | null;
   photo?: File | null;
   partner_municipality?: string | null;
+  waste_bin_id?: string;
 }
 
 export const useBinReports = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { user } = useAuth();
 
   const submitReport = async (reportData: BinReportData): Promise<string | null> => {
+    if (!user) {
+      console.error('User not authenticated');
+      return null;
+    }
+
     setIsSubmitting(true);
     
     try {
@@ -49,6 +57,7 @@ export const useBinReports = () => {
         comment: reportData.comment?.trim() || null,
         photo_url: photoUrl,
         partner_municipality: reportData.partner_municipality || null,
+        user_id: user.id,
         status: 'in_progress'
       };
 
@@ -58,7 +67,7 @@ export const useBinReports = () => {
       const { data, error } = await supabase
         .from('bin_reports')
         .insert(insertData)
-        .select('id')
+        .select('id, case_number')
         .single();
 
       if (error) {

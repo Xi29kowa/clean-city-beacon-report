@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 
 interface EnhancedLocationPickerProps extends LocationPickerProps {
   coordinates?: { lat: number; lng: number } | null;
+  onWasteBinIdChange?: (binId: string) => void;
 }
 
 const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
@@ -16,7 +17,8 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
   onChange,
   onPartnerMunicipalityChange,
   onWasteBinSelect,
-  coordinates
+  coordinates,
+  onWasteBinIdChange
 }) => {
   const [selectedWasteBin, setSelectedWasteBin] = useState<WasteBin | null>(null);
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(coordinates || null);
@@ -78,6 +80,9 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
     // Only allow numeric characters
     if (value === '' || /^\d+$/.test(value)) {
       setWasteBinId(value);
+      if (onWasteBinIdChange) {
+        onWasteBinIdChange(value);
+      }
     }
   };
 
