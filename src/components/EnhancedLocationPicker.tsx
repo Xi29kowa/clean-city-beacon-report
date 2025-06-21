@@ -16,12 +16,28 @@ const EnhancedLocationPicker: React.FC<LocationPickerProps> = ({
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null);
 
   const handleWasteBinSelect = (binId: string) => {
+    console.log('Waste bin selected in EnhancedLocationPicker:', binId);
     const selectedBin = wasteBins.find(bin => bin.id === binId);
     
     if (selectedBin) {
       setSelectedWasteBin(selectedBin);
       if (onWasteBinSelect) {
         onWasteBinSelect(selectedBin.id, selectedBin.location);
+      }
+    } else {
+      // Handle bins not in our dataset
+      console.log('Creating mock bin for ID:', binId);
+      const mockBin: WasteBin = {
+        id: binId,
+        location: `Standort ${binId}`,
+        coordinates: { lat: 49.4521, lng: 11.0767 },
+        status: 'empty',
+        lastEmptied: new Date().toISOString(),
+        type: 'general'
+      };
+      setSelectedWasteBin(mockBin);
+      if (onWasteBinSelect) {
+        onWasteBinSelect(mockBin.id, mockBin.location);
       }
     }
   };
@@ -34,6 +50,7 @@ const EnhancedLocationPicker: React.FC<LocationPickerProps> = ({
   };
 
   const handleLocationSelect = (coordinates: { lat: number; lng: number }) => {
+    console.log('Location selected, navigating map to:', coordinates);
     // Immediately update map center to navigate to the selected location
     setMapCenter(coordinates);
   };
@@ -43,6 +60,7 @@ const EnhancedLocationPicker: React.FC<LocationPickerProps> = ({
     
     // If coordinates are provided, navigate the map immediately
     if (coordinates) {
+      console.log('Address changed, navigating map to:', coordinates);
       setMapCenter(coordinates);
     }
   };

@@ -1,10 +1,10 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { MapPin, Navigation } from 'lucide-react';
+import { MapPin, Navigation, X } from 'lucide-react';
 import { AddressSuggestion } from '@/types/location';
-import { reverseGeocode, checkPartnerMunicipality } from '@/utils/locationUtils';
+import { municipalities } from '@/data/municipalities';
 
 interface AddressInputProps {
   value: string;
@@ -19,273 +19,173 @@ const AddressInput: React.FC<AddressInputProps> = ({
   onPartnerMunicipalityChange,
   onLocationSelect
 }) => {
-  const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const suggestionsRef = useRef<HTMLDivElement>(null);
-  const debounceTimerRef = useRef<NodeJS.Timeout>();
+  const debounceTimeoutRef = useRef<NodeJS.Timeout>();
 
-  const fetchAddressSuggestions = async (query: string): Promise<AddressSuggestion[]> => {
-    if (query.length < 3) return [];
+  // Optimized debounced search with better performance
+  const debouncedSearch = useCallback((searchTerm: string) => {
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current);
+    }
 
-    try {
-      // Focused search for German addresses with multiple strategies
-      const searchStrategies = [
-        // Strategy 1: Exact search with city context
-        {
-          q: `${query}, Deutschland`,
-          bounded: '1',
-          viewbox: '5.8,47.2,15.0,55.0', // Germany bounds
-          countrycodes: 'DE'
-        },
-        // Strategy 2: Broader search
-        {
-          q: query,
-          countrycodes: 'DE',
-          bounded: '0'
-        }
-      ];
-
-      let allResults: any[] = [];
-
-      for (const strategy of searchStrategies) {
-        const searchParams = new URLSearchParams({
-          format: 'json',
-          addressdetails: '1',
-          limit: '10',
-          extratags: '1',
-          namedetails: '1',
-          'accept-language': 'de',
-          ...strategy
-        });
-
+    debounceTimeoutRef.current = setTimeout(async () => {
+      if (searchTerm.length > 2) {
+        setIsLoading(true);
         try {
           const response = await fetch(
-            `https://nominatim.openstreetmap.org/search?${searchParams}`,
-            {
-              headers: {
-                'User-Agent': 'CleanCity/1.0 (https://cleancity.app)'
-              }
-            }
+            `https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=8&q=${encodeURIComponent(searchTerm)}, Germany`
           );
           
           if (response.ok) {
-            const data = await response.json();
-            if (Array.isArray(data)) {
-              allResults = [...allResults, ...data];
-            }
+            const data: AddressSuggestion[] = await response.json();
+            
+            // Improved filtering and formatting
+            const filteredSuggestions = data
+              .filter(suggestion => 
+                suggestion.address && 
+                suggestion.address.country_code === 'de'
+              )
+              .map(suggestion => {
+                const addr = suggestion.address!;
+                const parts = [];
+                
+                if (addr.road) parts.push(addr.road);
+                if (addr.house_number) parts.push(addr.house_number);
+                if (addr.postcode) parts.push(addr.postcode);
+                if (addr.city || addr.town || addr.village) {
+                  parts.push(addr.city || addr.town || addr.village);
+                }
+                
+                return {
+                  ...suggestion,
+                  display_name: parts.join(', '),
+                  short_name: parts.slice(0, 2).join(' ')
+                };
+              })
+              .slice(0, 6); // Limit to 6 suggestions for better performance
+            
+            setAddressSuggestions(filteredSuggestions);
+            setShowSuggestions(true);
           }
         } catch (error) {
-          console.warn('Search strategy failed:', error);
+          console.error('Search error:', error);
+        } finally {
+          setIsLoading(false);
         }
-      }
-
-      // Filter and process results
-      const filteredResults = allResults
-        .filter((item: any) => {
-          // Filter for real addresses in Germany
-          const hasValidAddress = item.address && (
-            item.address.house_number || 
-            item.address.road || 
-            item.address.pedestrian ||
-            item.address.residential ||
-            ['house', 'building', 'address'].includes(item.type)
-          );
-          
-          const isGermany = item.address?.country_code === 'de';
-          
-          const isRelevantType = [
-            'house', 'building', 'address', 'residential',
-            'commercial', 'retail', 'office', 'place'
-          ].includes(item.type) || 
-          ['place', 'highway', 'amenity', 'shop'].includes(item.class);
-
-          return hasValidAddress && isGermany && isRelevantType;
-        })
-        .map((item: any) => {
-          // Build comprehensive address with postal code
-          let displayName = '';
-          let shortName = '';
-          
-          if (item.address) {
-            const parts = [];
-            const shortParts = [];
-            
-            // Street and house number
-            if (item.address.house_number && item.address.road) {
-              const streetAddress = `${item.address.road} ${item.address.house_number}`;
-              parts.push(streetAddress);
-              shortParts.push(streetAddress);
-            } else if (item.address.road) {
-              parts.push(item.address.road);
-              shortParts.push(item.address.road);
-            }
-            
-            // Postal code - always include if available
-            if (item.address.postcode) {
-              parts.push(item.address.postcode);
-              shortParts.push(item.address.postcode);
-            }
-            
-            // City/town
-            const city = item.address.city || item.address.town || item.address.village;
-            if (city) {
-              parts.push(city);
-              shortParts.push(city);
-            }
-            
-            // State for clarity (only in full display name)
-            if (item.address.state && item.address.state !== city) {
-              parts.push(item.address.state);
-            }
-            
-            displayName = parts.join(', ');
-            shortName = shortParts.join(', ');
-          }
-
-          return {
-            display_name: displayName || item.display_name,
-            short_name: shortName,
-            lat: item.lat,
-            lon: item.lon,
-            address: item.address,
-            importance: item.importance || 0
-          };
-        })
-        // Remove duplicates
-        .filter((item: any, index: number, self: any[]) => {
-          return index === self.findIndex(t => 
-            Math.abs(parseFloat(t.lat) - parseFloat(item.lat)) < 0.0001 &&
-            Math.abs(parseFloat(t.lon) - parseFloat(item.lon)) < 0.0001
-          );
-        })
-        // Sort by relevance
-        .sort((a: any, b: any) => {
-          // Prioritize results with house numbers and postal codes
-          const aHasHouseNumber = a.address?.house_number ? 1 : 0;
-          const bHasHouseNumber = b.address?.house_number ? 1 : 0;
-          const aHasPostcode = a.address?.postcode ? 1 : 0;
-          const bHasPostcode = b.address?.postcode ? 1 : 0;
-          
-          const aScore = aHasHouseNumber + aHasPostcode + (a.importance || 0);
-          const bScore = bHasHouseNumber + bHasPostcode + (b.importance || 0);
-          
-          return bScore - aScore;
-        })
-        .slice(0, 8);
-
-      return filteredResults;
-    } catch (error) {
-      console.error('Error fetching address suggestions:', error);
-      return [];
-    }
-  };
-
-  const handleAddressInput = (inputValue: string) => {
-    onChange(inputValue);
-    
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-    }
-    
-    debounceTimerRef.current = setTimeout(async () => {
-      if (inputValue.length >= 3) {
-        setIsSearching(true);
-        const suggestions = await fetchAddressSuggestions(inputValue);
-        setAddressSuggestions(suggestions);
-        setShowSuggestions(true);
-        setIsSearching(false);
       } else {
         setAddressSuggestions([]);
         setShowSuggestions(false);
-        setIsSearching(false);
+        setIsLoading(false);
       }
-    }, 300);
+    }, 300); // Reduced debounce time for better responsiveness
+  }, []);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    onChange(newValue);
+    debouncedSearch(newValue);
   };
 
-  const handleSuggestionSelect = async (suggestion: AddressSuggestion) => {
-    const lat = parseFloat(suggestion.lat);
-    const lng = parseFloat(suggestion.lon);
+  const detectMunicipality = (suggestion: AddressSuggestion) => {
+    const cityName = suggestion.address?.city || suggestion.address?.town || suggestion.address?.village || '';
+    const municipality = municipalities.find(m => 
+      cityName.toLowerCase().includes(m.label.toLowerCase())
+    );
+    return municipality?.value || null;
+  };
+
+  const handleSuggestionClick = (suggestion: AddressSuggestion) => {
+    const coordinates = {
+      lat: parseFloat(suggestion.lat),
+      lng: parseFloat(suggestion.lon)
+    };
+
+    onChange(suggestion.display_name, coordinates);
     
-    // Use the complete address with postal code
-    const addressToShow = suggestion.short_name || suggestion.display_name;
+    // Immediately trigger map navigation
+    if (onLocationSelect) {
+      onLocationSelect(coordinates);
+    }
+
+    const municipality = detectMunicipality(suggestion);
+    onPartnerMunicipalityChange(municipality);
     
-    onChange(addressToShow, { lat, lng });
     setShowSuggestions(false);
     setAddressSuggestions([]);
-    
-    // Immediately navigate map to selected location
-    if (onLocationSelect) {
-      onLocationSelect({ lat, lng });
-    }
-    
-    const municipality = checkPartnerMunicipality(lat, lng);
-    onPartnerMunicipalityChange(municipality);
   };
 
   const getCurrentLocation = () => {
     if (!navigator.geolocation) {
-      alert('Geolocation wird von diesem Browser nicht unterstützt.');
+      alert('Geolocation wird von Ihrem Browser nicht unterstützt');
       return;
     }
 
     setIsGettingLocation(true);
-
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
-        const address = await reverseGeocode(latitude, longitude);
         
-        onChange(address, { lat: latitude, lng: longitude });
-        
-        // Navigate map to current location
-        if (onLocationSelect) {
-          onLocationSelect({ lat: latitude, lng: longitude });
+        try {
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`
+          );
+          
+          if (response.ok) {
+            const data = await response.json();
+            const addr = data.address || {};
+            
+            const parts = [];
+            if (addr.road) parts.push(addr.road);
+            if (addr.house_number) parts.push(addr.house_number);
+            if (addr.postcode) parts.push(addr.postcode);
+            if (addr.city || addr.town || addr.village) {
+              parts.push(addr.city || addr.town || addr.village);
+            }
+            
+            const formattedAddress = parts.join(', ');
+            const coordinates = { lat: latitude, lng: longitude };
+            
+            onChange(formattedAddress, coordinates);
+            
+            if (onLocationSelect) {
+              onLocationSelect(coordinates);
+            }
+
+            const municipality = detectMunicipality(data);
+            onPartnerMunicipalityChange(municipality);
+          }
+        } catch (error) {
+          console.error('Reverse geocoding error:', error);
+        } finally {
+          setIsGettingLocation(false);
         }
-        
-        const municipality = checkPartnerMunicipality(latitude, longitude);
-        onPartnerMunicipalityChange(municipality);
-        
-        setIsGettingLocation(false);
       },
       (error) => {
         console.error('Geolocation error:', error);
+        alert('Standort konnte nicht ermittelt werden');
         setIsGettingLocation(false);
-        
-        const errorMessages = {
-          [error.PERMISSION_DENIED]: 'Standortzugriff wurde verweigert.',
-          [error.POSITION_UNAVAILABLE]: 'Standortinformationen sind nicht verfügbar.',
-          [error.TIMEOUT]: 'Timeout beim Abrufen des Standorts.',
-        };
-        
-        alert(errorMessages[error.code] || 'Ein unbekannter Fehler ist aufgetreten.');
       },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 60000
-      }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 300000 }
     );
   };
 
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        suggestionsRef.current && 
-        !suggestionsRef.current.contains(event.target as Node) &&
-        !inputRef.current?.contains(event.target as Node)
-      ) {
-        setShowSuggestions(false);
-      }
-    };
+  const clearInput = () => {
+    onChange('');
+    onPartnerMunicipalityChange(null);
+    setAddressSuggestions([]);
+    setShowSuggestions(false);
+    inputRef.current?.focus();
+  };
 
-    document.addEventListener('mousedown', handleClickOutside);
+  // Cleanup timeout on unmount
+  useEffect(() => {
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
       }
     };
   }, []);
@@ -293,79 +193,79 @@ const AddressInput: React.FC<AddressInputProps> = ({
   return (
     <div className="relative">
       <label className="block text-sm font-medium text-gray-700 mb-2">
-        📍 Standort *
+        📍 Standort eingeben
       </label>
-      <div className="flex gap-2">
-        <div className="flex-1 relative">
-          <Input
-            ref={inputRef}
-            type="text"
-            value={value}
-            onChange={(e) => handleAddressInput(e.target.value)}
-            placeholder="Straße, Hausnummer, PLZ eingeben..."
-            className="w-full"
-            required
-          />
-          
-          {showSuggestions && (
-            <div 
-              ref={suggestionsRef}
-              className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg max-h-64 overflow-y-auto z-50 mt-1"
-            >
-              {isSearching ? (
-                <div className="p-3 text-gray-500 text-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600 mx-auto mb-2"></div>
-                  Adresse wird gesucht...
-                </div>
-              ) : addressSuggestions.length > 0 ? (
-                addressSuggestions.map((suggestion, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleSuggestionSelect(suggestion)}
-                    className="w-full text-left p-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 focus:bg-blue-50 focus:outline-none"
-                  >
-                    <div className="flex items-start gap-2">
-                      <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm text-gray-900 font-medium">
-                          {suggestion.short_name || suggestion.display_name}
-                        </div>
-                        {suggestion.short_name && suggestion.short_name !== suggestion.display_name && (
-                          <div className="text-xs text-gray-500 truncate mt-1">
-                            {suggestion.display_name}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                ))
-              ) : value.length >= 3 ? (
-                <div className="p-3 text-gray-500 text-center text-sm">
-                  Keine passenden Adressen gefunden
-                </div>
-              ) : null}
-            </div>
-          )}
-        </div>
+      
+      <div className="relative">
+        <Input
+          ref={inputRef}
+          type="text"
+          placeholder="Straße, Hausnummer, PLZ, Stadt eingeben..."
+          value={value}
+          onChange={handleInputChange}
+          className="pr-20"
+        />
         
-        <Button
-          type="button"
-          variant="outline"
-          onClick={getCurrentLocation}
-          disabled={isGettingLocation}
-          className="flex items-center gap-2 px-3"
-        >
-          {isGettingLocation ? (
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
-          ) : (
-            <Navigation className="w-4 h-4" />
+        <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex space-x-1">
+          {value && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={clearInput}
+              className="h-8 w-8 p-0 hover:bg-gray-100"
+            >
+              <X className="w-4 h-4" />
+            </Button>
           )}
-          {isGettingLocation ? 'Suche...' : 'GPS'}
-        </Button>
+          
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={getCurrentLocation}
+            disabled={isGettingLocation}
+            className="h-8 w-8 p-0 hover:bg-blue-100"
+            title="Aktuellen Standort verwenden"
+          >
+            <Navigation className={`w-4 h-4 ${isGettingLocation ? 'animate-pulse' : ''}`} />
+          </Button>
+        </div>
       </div>
-      <p className="text-xs text-gray-500 mt-1">
-        Geben Sie Straße, Hausnummer oder PLZ ein für präzise Adressvorschläge
-      </p>
+
+      {isLoading && (
+        <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg mt-1 p-3 z-50">
+          <div className="flex items-center space-x-2">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
+            <span className="text-sm text-gray-600">Suche...</span>
+          </div>
+        </div>
+      )}
+
+      {showSuggestions && addressSuggestions.length > 0 && (
+        <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg mt-1 max-h-64 overflow-y-auto z-50">
+          {addressSuggestions.map((suggestion, index) => (
+            <button
+              key={index}
+              type="button"
+              onClick={() => handleSuggestionClick(suggestion)}
+              className="w-full text-left px-4 py-3 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none border-b border-gray-100 last:border-b-0"
+            >
+              <div className="flex items-start space-x-3">
+                <MapPin className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="font-medium text-gray-900 truncate">
+                    {suggestion.short_name}
+                  </div>
+                  <div className="text-sm text-gray-500 truncate">
+                    {suggestion.display_name}
+                  </div>
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

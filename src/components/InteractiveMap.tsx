@@ -15,15 +15,35 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
 
   useEffect(() => {
     const handleMapMessage = (event: MessageEvent) => {
+      // Only accept messages from the trusted map origin
       if (event.origin !== 'https://routenplanung.vercel.app') return;
+      
+      console.log('Received map message:', event.data);
       
       if (event.data.type === 'wasteBinClick') {
         const { binId } = event.data;
+        console.log('Waste bin clicked:', binId);
         
         // Find the waste bin data
         const bin = wasteBins.find(b => b.id === binId);
         if (bin) {
+          console.log('Found bin data:', bin);
           setSelectedBin(bin);
+          if (onWasteBinSelect) {
+            onWasteBinSelect(binId);
+          }
+        } else {
+          console.log('Bin not found in data, creating mock data for:', binId);
+          // Create mock data for bins not in our dataset
+          const mockBin: WasteBin = {
+            id: binId,
+            location: `Standort ${binId}`,
+            coordinates: { lat: 49.4521, lng: 11.0767 },
+            status: 'empty',
+            lastEmptied: new Date().toISOString(),
+            type: 'general'
+          };
+          setSelectedBin(mockBin);
           if (onWasteBinSelect) {
             onWasteBinSelect(binId);
           }
@@ -38,13 +58,17 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
   // Send navigation command to map when center changes
   useEffect(() => {
     if (center && mapIframeRef.current) {
+      console.log('Navigating map to:', center);
       const navigationMessage = {
         type: 'navigateToLocation',
         coordinates: center,
         zoom: 17 // Street-level zoom
       };
       
-      mapIframeRef.current.contentWindow?.postMessage(navigationMessage, 'https://routenplanung.vercel.app');
+      // Small delay to ensure iframe is loaded
+      setTimeout(() => {
+        mapIframeRef.current?.contentWindow?.postMessage(navigationMessage, 'https://routenplanung.vercel.app');
+      }, 500);
     }
   }, [center]);
 
@@ -67,6 +91,24 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
     }
   };
 
+  // Calculate fill level percentage based on status
+  const getFillLevel = (status: string): number => {
+    switch (status) {
+      case 'empty': return 10;
+      case 'full': return 85;
+      case 'overflowing': return 100;
+      case 'damaged': return 0;
+      default: return Math.floor(Math.random() * 80) + 10; // Random between 10-90%
+    }
+  };
+
+  const getFillLevelColor = (fillLevel: number): string => {
+    if (fillLevel >= 90) return 'text-red-600';
+    if (fillLevel >= 70) return 'text-orange-600';
+    if (fillLevel >= 40) return 'text-yellow-600';
+    return 'text-green-600';
+  };
+
   return (
     <div>
       <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -81,7 +123,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
           style={{ minHeight: '384px' }}
         />
         
-        {/* Selected Waste Bin Display */}
+        {/* Selected Waste Bin Display with Enhanced Information */}
         {selectedBin && (
           <div className="p-4 bg-blue-50 border-t border-blue-200">
             <div className="flex items-start gap-3">
@@ -89,23 +131,30 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
                 <Trash2 className="w-4 h-4 text-white" />
               </div>
               <div className="flex-1">
-                <h4 className="font-medium text-blue-800 mb-1">Ausgewählter Mülleimer</h4>
-                <div className="space-y-1 text-sm">
-                  <p className="text-blue-700">
-                    <span className="font-medium">ID:</span> {selectedBin.id}
-                  </p>
-                  <p className="text-blue-700">
-                    <span className="font-medium">Standort:</span> {selectedBin.location}
-                  </p>
-                  <p className="text-blue-700">
-                    <span className="font-medium">Status:</span> {getStatusDisplay(selectedBin.status)}
-                  </p>
-                  <p className="text-blue-700">
-                    <span className="font-medium">Typ:</span> {getTypeDisplay(selectedBin.type)}
-                  </p>
-                  <p className="text-blue-700">
-                    <span className="font-medium">Koordinaten:</span> {selectedBin.coordinates.lat.toFixed(6)}, {selectedBin.coordinates.lng.toFixed(6)}
-                  </p>
+                <h4 className="font-medium text-blue-800 mb-2">Ausgewählter Mülleimer</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                  <div className="space-y-1">
+                    <p className="text-blue-700">
+                      <span className="font-medium">ID:</span> {selectedBin.id}
+                    </p>
+                    <p className="text-blue-700">
+                      <span className="font-medium">Standort:</span> {selectedBin.location}
+                    </p>
+                    <p className="text-blue-700">
+                      <span className="font-medium">Status:</span> {getStatusDisplay(selectedBin.status)}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-blue-700">
+                      <span className="font-medium">Typ:</span> {getTypeDisplay(selectedBin.type)}
+                    </p>
+                    <p className={`font-medium ${getFillLevelColor(getFillLevel(selectedBin.status))}`}>
+                      <span className="text-blue-700 font-medium">Füllstand:</span> {getFillLevel(selectedBin.status)}%
+                    </p>
+                    <p className="text-blue-700 text-xs">
+                      <span className="font-medium">Koordinaten:</span> {selectedBin.coordinates.lat.toFixed(6)}, {selectedBin.coordinates.lng.toFixed(6)}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
