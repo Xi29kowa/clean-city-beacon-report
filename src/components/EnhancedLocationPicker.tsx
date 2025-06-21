@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { LocationPickerProps, WasteBin } from '@/types/location';
 import { wasteBins } from '@/data/wasteBins';
@@ -32,9 +33,9 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
     console.log('📝 Setting waste bin ID to:', binId);
     setWasteBinId(binId);
     
-    // IMPORTANT: Call the parent callback immediately
+    // CRITICAL: Call the parent callback immediately
     if (onWasteBinIdChange) {
-      console.log('📤 Calling onWasteBinIdChange with:', binId);
+      console.log('📤 CRITICAL: Calling onWasteBinIdChange with:', binId);
       onWasteBinIdChange(binId);
     }
     
@@ -91,7 +92,7 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
     const value = e.target.value;
     // Only allow numeric characters
     if (value === '' || /^\d+$/.test(value)) {
-      console.log('✏️ CRITICAL - Manual waste bin ID change:', value);
+      console.log('✏️ CRITICAL - Manual waste bin ID change to:', value);
       setWasteBinId(value);
       
       // CRITICAL: ALWAYS call the parent callback when user types manually
@@ -116,6 +117,13 @@ const EnhancedLocationPicker: React.FC<EnhancedLocationPickerProps> = ({
       setMapCenter({ ...coordinates });
     }
   }, [coordinates?.lat, coordinates?.lng]);
+
+  // CRITICAL: Log current waste bin ID state
+  useEffect(() => {
+    console.log('🔍 CRITICAL - Current wasteBinId state:', wasteBinId);
+    console.log('🔍 CRITICAL - wasteBinId type:', typeof wasteBinId);
+    console.log('🔍 CRITICAL - wasteBinId length:', wasteBinId?.length);
+  }, [wasteBinId]);
 
   // Get municipality label for display
   const getMunicipalityLabel = (value: string) => {

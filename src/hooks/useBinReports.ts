@@ -18,7 +18,7 @@ export const useBinReports = () => {
 
   const submitReport = async (reportData: BinReportData): Promise<string | null> => {
     if (!user) {
-      console.error('User not authenticated');
+      console.error('❌ User not authenticated');
       return null;
     }
 
@@ -29,6 +29,9 @@ export const useBinReports = () => {
       console.log('🗑️ CRITICAL - WASTE BIN ID TO SAVE:', reportData.waste_bin_id);
       console.log('🗑️ CRITICAL - WASTE BIN ID TYPE:', typeof reportData.waste_bin_id);
       console.log('🗑️ CRITICAL - WASTE BIN ID LENGTH:', reportData.waste_bin_id?.length);
+      console.log('🗑️ CRITICAL - IS EMPTY STRING?:', reportData.waste_bin_id === '');
+      console.log('🗑️ CRITICAL - IS UNDEFINED?:', reportData.waste_bin_id === undefined);
+      console.log('🗑️ CRITICAL - IS NULL?:', reportData.waste_bin_id === null);
       
       let photoUrl = null;
 
@@ -43,17 +46,24 @@ export const useBinReports = () => {
           .upload(fileName, reportData.photo);
 
         if (uploadError) {
-          console.error('Error uploading photo:', uploadError);
+          console.error('❌ Error uploading photo:', uploadError);
         } else {
           const { data: { publicUrl } } = supabase.storage
             .from('bin-photos')
             .getPublicUrl(fileName);
           photoUrl = publicUrl;
-          console.log('📸 Photo uploaded successfully:', photoUrl);
+          console.log('✅ Photo uploaded successfully:', photoUrl);
         }
       }
 
-      // CRITICAL: Prepare data for insertion - waste_bin_id MUSS korrekt übertragen werden
+      // CRITICAL: Prepare data for insertion - waste_bin_id MUST be correctly transferred
+      const wasteBinIdToSave = reportData.waste_bin_id && reportData.waste_bin_id.trim() !== '' 
+        ? reportData.waste_bin_id.trim() 
+        : null;
+
+      console.log('🔧 CRITICAL - PROCESSED WASTE_BIN_ID FOR SAVE:', wasteBinIdToSave);
+      console.log('🔧 CRITICAL - PROCESSED WASTE_BIN_ID TYPE:', typeof wasteBinIdToSave);
+
       const insertData = {
         location: reportData.location.trim(),
         issue_type: reportData.issue_type,
@@ -62,12 +72,12 @@ export const useBinReports = () => {
         partner_municipality: reportData.partner_municipality || null,
         user_id: user.id,
         status: 'in_progress',
-        waste_bin_id: reportData.waste_bin_id || null // HIER IST DAS KRITISCHE FELD!
+        waste_bin_id: wasteBinIdToSave // CRITICAL FIELD - cleaned and processed
       };
 
-      console.log('💾 CRITICAL - FINAL INSERT DATA WITH WASTE_BIN_ID:', insertData);
-      console.log('🗑️ CRITICAL - FINAL WASTE_BIN_ID VALUE:', insertData.waste_bin_id);
-      console.log('🗑️ CRITICAL - FINAL WASTE_BIN_ID TYPE:', typeof insertData.waste_bin_id);
+      console.log('💾 CRITICAL - FINAL INSERT DATA:', insertData);
+      console.log('💾 CRITICAL - FINAL WASTE_BIN_ID VALUE:', insertData.waste_bin_id);
+      console.log('💾 CRITICAL - FINAL WASTE_BIN_ID TYPE:', typeof insertData.waste_bin_id);
 
       // CRITICAL: Insert the bin report with waste_bin_id
       const { data, error } = await supabase
@@ -78,7 +88,7 @@ export const useBinReports = () => {
 
       if (error) {
         console.error('❌ CRITICAL ERROR submitting report:', error);
-        console.error('Error details:', {
+        console.error('❌ Error details:', {
           message: error.message,
           details: error.details,
           hint: error.hint,
@@ -87,9 +97,11 @@ export const useBinReports = () => {
         return null;
       }
 
-      console.log('✅ CRITICAL SUCCESS - Report submitted successfully with data:', data);
-      console.log('✅ CRITICAL SUCCESS - CONFIRMED WASTE_BIN_ID SAVED:', data.waste_bin_id);
+      console.log('✅ CRITICAL SUCCESS - Report submitted with data:', data);
+      console.log('✅ CRITICAL SUCCESS - CONFIRMED WASTE_BIN_ID SAVED AS:', data.waste_bin_id);
       console.log('✅ CRITICAL SUCCESS - CONFIRMED WASTE_BIN_ID TYPE:', typeof data.waste_bin_id);
+      console.log('✅ CRITICAL SUCCESS - CONFIRMED WASTE_BIN_ID IS NULL?:', data.waste_bin_id === null);
+      
       return data.id;
     } catch (error) {
       console.error('❌ CRITICAL ERROR submitting report:', error);
