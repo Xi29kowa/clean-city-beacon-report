@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -13,7 +12,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { Trash2, MapPin, FileText, User, Menu, X, Loader2 } from 'lucide-react';
 import { useBinReports } from '@/hooks/useBinReports';
 import { useStatistics } from '@/hooks/useStatistics';
-import { useReportsData } from '@/hooks/useReportsData';
 import NativeLeafletMap from '@/components/NativeLeafletMap';
 
 const Index = () => {
@@ -33,8 +31,8 @@ const Index = () => {
 
   const { user } = useAuth();
   const { toast } = useToast();
-  const { data: reports = [], refetch: refetchReports } = useReportsData();
-  const { statistics = { total_reports: 0, in_progress_reports: 0, processed_reports: 0 } } = useStatistics();
+  const { data: reports = [], refetch: refetchReports } = useBinReports();
+  const { data: statistics = { total_reports: 0, in_progress_reports: 0, processed_reports: 0 } } = useStatistics();
 
   useEffect(() => {
     // Fetch reports on component mount
@@ -101,8 +99,8 @@ const Index = () => {
     try {
       const reportData = {
         location: formData.location,
-        issue_type: formData.problemType,
-        comment: formData.description || null,
+        problem_type: formData.problemType,
+        description: formData.description || null,
         user_id: user.id,
         status: 'in_progress',
         waste_bin_id: formData.wasteBinId,
@@ -255,7 +253,7 @@ const Index = () => {
           {/* User Dropdown / Auth Button */}
           <div className="hidden md:block">
             {user ? (
-              <UserDropdown />
+              <UserDropdown user={user} />
             ) : (
               <Button
                 onClick={() => setIsAuthModalOpen(true)}
@@ -354,7 +352,7 @@ const Index = () => {
               
               {user ? (
                 <div className="px-4 py-2">
-                  <UserDropdown />
+                  <UserDropdown user={user} />
                 </div>
               ) : (
                 <button
@@ -453,7 +451,7 @@ const Index = () => {
 
             <ProblemTypeSelect
               value={formData.problemType}
-              onValueChange={(problemType) => setFormData(prev => ({ ...prev, problemType }))}
+              onChange={(problemType) => setFormData(prev => ({ ...prev, problemType }))}
             />
 
             <div>
@@ -577,7 +575,7 @@ const Index = () => {
                         {report.waste_bin_id || 'Nicht angegeben'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {report.issue_type}
+                        {report.problem_type}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -622,8 +620,10 @@ const Index = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700">Benutzername</label>
-                <p className="mt-1 text-sm text-gray-900">{user.username}</p>
+                <label className="block text-sm font-medium text-gray-700">Registriert seit</label>
+                <p className="mt-1 text-sm text-gray-900">
+                  {new Date(user.created_at).toLocaleDateString('de-DE')}
+                </p>
               </div>
 
               <div>
