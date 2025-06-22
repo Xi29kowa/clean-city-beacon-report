@@ -1,952 +1,375 @@
-
-import React, { useState, useEffect, useRef } from 'react';
-import { Camera, MapPin, Leaf, CheckCircle, ArrowRight, Upload, Menu, X, Info, Shield, Phone, User, LogIn, Share2, Copy, Wifi, Battery, Zap, Database, Monitor, LogOut } from 'lucide-react';
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/contexts/AuthContext";
-import AuthModal from "@/components/AuthModal";
-import UserDropdown from "@/components/UserDropdown";
-import NotificationDialog from "@/components/NotificationDialog";
-import LocationPicker from "@/components/LocationPicker";
-import { useStatistics } from "@/hooks/useStatistics";
-import { useBinReports } from "@/hooks/useBinReports";
-import EnhancedLocationPicker from "@/components/EnhancedLocationPicker";
-import ProblemTypeSelect from "@/components/ProblemTypeSelect";
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useRef, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import AuthModal from '@/components/AuthModal';
+import LocationPicker from '@/components/LocationPicker';
+import EnhancedLocationPicker from '@/components/EnhancedLocationPicker';
+import ProblemTypeSelect from '@/components/ProblemTypeSelect';
+import UserDropdown from '@/components/UserDropdown';
+import { supabase } from '@/integrations/supabase/client';
+import { Trash2, MapPin, FileText, User, Menu, X, Loader2 } from 'lucide-react';
+import { useBinReports } from '@/hooks/useBinReports';
+import { useStatistics } from '@/hooks/useStatistics';
+import NativeLeafletMap from '@/components/NativeLeafletMap';
 
 const Index = () => {
-  const [currentView, setCurrentView] = useState('home');
-  const [showMenu, setShowMenu] = useState(false);
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [activeTab, setActiveTab] = useState('melden');
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [formData, setFormData] = useState({
     location: '',
-    photo: null,
-    issueType: '',
-    comment: '',
-    partnerMunicipality: '',
-    wasteBinId: ''
+    problemType: '',
+    description: '',
+    coordinates: null as { lat: number; lng: number } | null,
+    wasteBinId: '',
+    partnerMunicipality: null as string | null,
   });
-  const [locationCoordinates, setLocationCoordinates] = useState<{ lat: number; lng: number } | null>(null);
-  const [addressSuggestions, setAddressSuggestions] = useState([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const [isGettingLocation, setIsGettingLocation] = useState(false);
-  const [displayCount, setDisplayCount] = useState(0);
-  const [currentReportId, setCurrentReportId] = useState<string | null>(null);
-  const [showNotificationDialog, setShowNotificationDialog] = useState(false);
-  const [canSubmitReport, setCanSubmitReport] = useState(false);
-  
-  // Map specific state
-  const [mapAddress, setMapAddress] = useState('');
-  const [selectedWasteBasket, setSelectedWasteBasket] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedWasteBasketId, setSelectedWasteBasketId] = useState('');
-  const mapIframeRef = useRef<HTMLIFrameElement>(null);
-  
-  const inputRef = useRef(null);
+
+  const { user } = useAuth();
   const { toast } = useToast();
-  const { user, logout, isLoggedIn } = useAuth();
-  const navigate = useNavigate();
+  const { data: reports = [], refetch: refetchReports } = useBinReports();
+  const { data: statistics = { total_reports: 0, in_progress_reports: 0, processed_reports: 0 } } = useStatistics();
 
-  // Use the statistics hook
-  const { statistics, loading: statsLoading } = useStatistics();
-  const { submitReport, submitNotificationRequest, isSubmitting } = useBinReports();
-
-  // Partner municipalities list
-  const partnerMunicipalities = [
-    { value: 'nuernberg', label: 'Nürnberg' },
-    { value: 'erlangen', label: 'Erlangen' },
-    { value: 'fuerth', label: 'Fürth' }
-  ];
-
-  // Setup iframe communication for map interaction
   useEffect(() => {
-    const handleMapMessage = (event: MessageEvent) => {
-      // Only accept messages from the trusted map origin
-      if (event.origin !== 'https://routenplanung.vercel.app') return;
-      
-      console.log('Received map message:', event.data);
-      
-      if (event.data.type === 'wasteBasketSelected') {
-        console.log('Waste basket selected:', event.data.id);
-        setSelectedWasteBasket(event.data.id);
-        setSelectedWasteBasketId(event.data.id);
-        toast({
-          title: "Mülleimer ausgewählt",
-          description: `WasteBasket ID: ${event.data.id}`,
-        });
-      }
-    };
-
-    window.addEventListener('message', handleMapMessage);
-    return () => window.removeEventListener('message', handleMapMessage);
-  }, [toast]);
-
-  // Send address to map for navigation
-  const sendAddressToMap = (address: string) => {
-    if (mapIframeRef.current && address.trim()) {
-      console.log('Sending address to map:', address);
-      mapIframeRef.current.contentWindow?.postMessage({
-        type: 'navigateToAddress',
-        address: address
-      }, 'https://routenplanung.vercel.app');
-    }
-  };
-
-  // Handle address input and navigation
-  const handleAddressSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (mapAddress.trim()) {
-      sendAddressToMap(mapAddress);
-      toast({
-        title: "Navigation gestartet",
-        description: `Navigiere zu: ${mapAddress}`,
-      });
-    }
-  };
-
-  // Handle "Mülleimer melden" button click
-  const handleReportWasteBasket = () => {
-    if (selectedWasteBasketId) {
-      // Pre-fill the form with the selected waste basket
-      setFormData(prev => ({ 
-        ...prev, 
-        wasteBinId: selectedWasteBasketId,
-        location: `Standort Mülleimer ${selectedWasteBasketId}`
-      }));
-      setCurrentView('report');
-      toast({
-        title: "Formular vorbereitet",
-        description: `Mülleimer ${selectedWasteBasketId} für Meldung ausgewählt`,
-      });
-    }
-  };
-
-  // Check if report can be submitted based on partner municipality
-  useEffect(() => {
-    const hasLocation = formData.location?.trim();
-    const hasIssueType = formData.issueType;
-    const hasPartnerMunicipality = formData.partnerMunicipality;
-    
-    setCanSubmitReport(Boolean(hasLocation && hasIssueType && hasPartnerMunicipality));
-  }, [formData.location, formData.issueType, formData.partnerMunicipality]);
-
-  // Animation function for counter
-  const animateCounter = (start, end, duration = 1000) => {
-    const startTime = Date.now();
-    const range = end - start;
-    
-    const timer = setInterval(() => {
-      const elapsed = Date.now() - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      
-      // Easing function for smooth animation
-      const easeOut = 1 - Math.pow(1 - progress, 3);
-      const current = Math.round(start + range * easeOut);
-      
-      setDisplayCount(current);
-      
-      if (progress === 1) {
-        clearInterval(timer);
-      }
-    }, 16); // ~60fps
-  };
-
-  // Update counter when statistics change
-  useEffect(() => {
-    if (!statsLoading && displayCount !== statistics.total_reports) {
-      animateCounter(displayCount, statistics.total_reports);
-    }
-  }, [statistics.total_reports, statsLoading]);
-
-  // Clean town and city images for slideshow - using uploaded images
-  const cityImages = [
-    '/lovable-uploads/6d72ae02-350d-4772-97a8-7c4277724471.png',
-    '/lovable-uploads/2ef5a94a-bbdd-4ab8-928b-2eea2b8f4491.png',
-    '/lovable-uploads/0343eb59-7972-47ca-98cc-2877fdd5f59a.png',
-    '/lovable-uploads/2b8fbdcc-e881-4cba-838c-9de31ff24223.png',
-    '/lovable-uploads/1be0d136-0b07-4c24-b9ef-4a8735691b13.png'
-  ];
-
-  // Slideshow effect
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentImageIndex((prevIndex) => 
-        prevIndex === cityImages.length - 1 ? 0 : prevIndex + 1
-      );
-    }, 4000);
-
-    return () => clearInterval(interval);
-  }, [cityImages.length]);
+    // Fetch reports on component mount
+    refetchReports();
+  }, [refetchReports]);
 
   const handleLocationChange = (location: string, coordinates?: { lat: number; lng: number }) => {
-    setFormData(prev => ({ ...prev, location }));
-    if (coordinates) {
-      setLocationCoordinates(coordinates);
-    }
+    setFormData(prev => ({ ...prev, location, coordinates }));
+  };
+
+  const handleProblemTypeChange = (problemType: string) => {
+    setFormData(prev => ({ ...prev, problemType }));
+  };
+
+  const handleDescriptionChange = (description: string) => {
+    setFormData(prev => ({ ...prev, description }));
+  };
+
+  const handleWasteBinIdChange = (wasteBinId: string) => {
+    setFormData(prev => ({ ...prev, wasteBinId }));
   };
 
   const handlePartnerMunicipalityChange = (municipality: string | null) => {
-    setFormData(prev => ({ ...prev, partnerMunicipality: municipality || '' }));
+    setFormData(prev => ({ ...prev, partnerMunicipality: municipality }));
   };
 
-  const handleWasteBinSelect = (binId: string, binLocation: string) => {
-    console.log('Waste bin selected in Index:', binId, binLocation);
-    setFormData(prev => ({ 
-      ...prev, 
-      wasteBinId: binId,
-      location: binLocation || prev.location
-    }));
-  };
-
-  const handlePhotoUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setFormData(prev => ({ ...prev, photo: file }));
-      toast({
-        title: "Foto hochgeladen!",
-        description: "Ihr Bild wurde zur Meldung hinzugefügt.",
-      });
-    }
-  };
-
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    console.log('🚀 CRITICAL - Form submission started with data:', {
-      location: formData.location,
-      issueType: formData.issueType,
-      comment: formData.comment?.trim() || null,
-      photo: formData.photo?.name || 'none',
-      partnerMunicipality: formData.partnerMunicipality,
-      wasteBinId: formData.wasteBinId
-    });
-    
-    if (!formData.location?.trim()) {
+    if (!user) {
+      setIsAuthModalOpen(true);
+      return;
+    }
+
+    if (!formData.location) {
       toast({
-        title: "Fehlende Angaben",
+        title: "Fehler",
         description: "Bitte geben Sie einen Standort an.",
         variant: "destructive",
       });
       return;
     }
-    
-    if (!formData.issueType) {
+
+    if (!formData.problemType) {
       toast({
-        title: "Fehlende Angaben", 
-        description: "Bitte wählen Sie eine Problemart aus.",
+        title: "Fehler", 
+        description: "Bitte wählen Sie ein Problem aus.",
         variant: "destructive",
       });
       return;
     }
 
-    if (!formData.partnerMunicipality) {
+    if (!formData.wasteBinId) {
       toast({
-        title: "Standort nicht unterstützt",
-        description: "Leider unterstützen wir derzeit nur Meldungen in ausgewählten Partnerstädten.",
+        title: "Fehler",
+        description: "Bitte geben Sie eine Mülleimer ID an.",
         variant: "destructive",
       });
       return;
     }
-    
-    console.log('🗑️ CRITICAL - PASSING wasteBinId to submitReport:', formData.wasteBinId);
-    
-    const reportId = await submitReport({
-      location: formData.location.trim(),
-      issue_type: formData.issueType,
-      comment: formData.comment?.trim() || null,
-      photo: formData.photo,
-      partner_municipality: formData.partnerMunicipality || null,
-      waste_bin_id: formData.wasteBinId // CRITICAL: Pass the waste_bin_id here!
-    });
 
-    if (reportId) {
-      setCurrentReportId(reportId);
-      setCurrentView('confirmation');
-      setFormData({ 
-        location: '', 
-        photo: null, 
-        issueType: '', 
-        comment: '', 
-        partnerMunicipality: '',
-        wasteBinId: '' 
-      });
-      setLocationCoordinates(null);
+    setIsSubmitting(true);
+
+    try {
+      const reportData = {
+        location: formData.location,
+        problem_type: formData.problemType,
+        description: formData.description || null,
+        user_id: user.id,
+        status: 'in_progress',
+        waste_bin_id: formData.wasteBinId,
+        partner_municipality: formData.partnerMunicipality,
+        coordinates: formData.coordinates ? 
+          `POINT(${formData.coordinates.lng} ${formData.coordinates.lat})` : null,
+      };
+
+      console.log('Submitting report data:', reportData);
+
+      const { data, error } = await supabase
+        .from('bin_reports')
+        .insert([reportData])
+        .select();
+
+      if (error) {
+        console.error('Error submitting report:', error);
+        throw error;
+      }
+
+      console.log('Report submitted successfully:', data);
+
       toast({
-        title: "Meldung erfolgreich!",
-        description: "Ihre Meldung wurde an die Stadtreinigung weitergeleitet.",
+        title: "Meldung erfolgreich eingereicht",
+        description: "Vielen Dank für Ihre Meldung! Sie wird bearbeitet.",
       });
-    } else {
+
+      // Reset form
+      setFormData({
+        location: '',
+        problemType: '',
+        description: '',
+        coordinates: null,
+        wasteBinId: '',
+        partnerMunicipality: null,
+      });
+      setSelectedWasteBasketId('');
+
+      // Refetch reports to update the list
+      refetchReports();
+
+    } catch (error) {
+      console.error('Error:', error);
       toast({
-        title: "Fehler beim Senden",
-        description: "Ihre Meldung konnte nicht übermittelt werden. Bitte versuchen Sie es erneut.",
+        title: "Fehler",
+        description: "Beim Einreichen der Meldung ist ein Fehler aufgetreten.",
         variant: "destructive",
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleNotificationRequest = async (email: string) => {
-    if (!currentReportId) return false;
-    return await submitNotificationRequest(email, currentReportId);
-  };
-
-  const handleShare = async () => {
-    const url = window.location.href;
-    const title = 'CleanCity - Hilf mit, deine Stadt sauber zu halten!';
-    const text = 'Melde überfüllte oder beschädigte Mülleimer mit CleanCity und sorge für eine saubere Stadt.';
-
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title,
-          text,
-          url
-        });
-      } catch (error) {
-        console.log('Share cancelled or failed:', error);
-      }
-    } else {
-      try {
-        await navigator.clipboard.writeText(url);
-        toast({
-          title: "Link kopiert!",
-          description: "Der Link wurde in die Zwischenablage kopiert.",
-        });
-      } catch (error) {
-        console.error('Failed to copy to clipboard:', error);
-        toast({
-          title: "Fehler",
-          description: "Der Link konnte nicht kopiert werden.",
-          variant: "destructive",
-        });
-      }
+  const handleReportWasteBasket = () => {
+    if (!selectedWasteBasketId) {
+      toast({
+        title: "Kein Mülleimer ausgewählt",
+        description: "Bitte wählen Sie zuerst einen Mülleimer auf der Karte aus.",
+        variant: "destructive",
+      });
+      return;
     }
-  };
 
-  const handleLogout = () => {
-    logout();
-    if (currentView === 'karte') {
-      setCurrentView('home');
-    }
+    // Pre-fill form and switch to report tab
+    setFormData(prev => ({
+      ...prev,
+      wasteBinId: selectedWasteBasketId,
+      location: prev.location || `Standort Mülleimer ${selectedWasteBasketId}`
+    }));
+    
+    setActiveTab('melden');
+    
     toast({
-      title: "Erfolgreich abgemeldet",
-      description: "Auf Wiedersehen!",
+      title: "Mülleimer vorausgewählt",
+      description: `WasteBasket ID ${selectedWasteBasketId} wurde in das Formular übernommen.`,
     });
-  };
-
-  const handleUserAccountClick = () => {
-    navigate('/account');
   };
 
   const renderHeader = () => (
-    <header className="bg-white shadow-sm border-b border-green-100 sticky top-0 z-50">
-      <div className="container mx-auto px-4 py-4">
-        <div className="flex items-center justify-between w-full min-h-[48px]">
-          {/* Logo - Fixed width to prevent shifting */}
-          <div className="flex items-center space-x-2 cursor-pointer w-48 flex-shrink-0" onClick={() => setCurrentView('home')}>
-            <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
-              <Leaf className="w-5 h-5 text-white" />
-            </div>
-            <h1 className="text-xl font-bold text-green-800 whitespace-nowrap">CleanCity</h1>
+    <header className="bg-green-600 text-white shadow-lg">
+      <div className="container mx-auto px-4">
+        <div className="flex items-center justify-between h-16">
+          <div className="flex items-center space-x-2">
+            <Trash2 className="w-8 h-8" />
+            <h1 className="text-xl font-bold hidden sm:block">Saubere Stadt Nürnberg</h1>
+            <h1 className="text-lg font-bold sm:hidden">Saubere Stadt</h1>
           </div>
 
-          {/* Desktop Navigation - Centered with fixed spacing */}
-          <nav className="hidden md:flex items-center justify-center flex-1 max-w-2xl mx-auto">
-            <div className="flex items-center space-x-6">
-              <Button 
-                onClick={() => setCurrentView('report')}
-                className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-full font-semibold shadow-md transform transition hover:scale-105"
-              >
-                Mülleimer melden
-              </Button>
-              {isLoggedIn && (
-                <Button 
-                  variant="ghost" 
-                  onClick={() => setCurrentView('karte')}
-                  className={`px-4 py-2 rounded-md transition-colors whitespace-nowrap min-w-[100px] ${
-                    currentView === 'karte' 
-                      ? 'text-green-600 bg-green-50 font-semibold' 
-                      : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
-                  }`}
-                >
-                  Karte
-                </Button>
-              )}
-              <Button 
-                variant="ghost" 
-                onClick={() => setCurrentView('home')}
-                className={`px-4 py-2 rounded-md transition-colors whitespace-nowrap min-w-[100px] ${
-                  currentView === 'home' 
-                    ? 'text-green-600 bg-green-50 font-semibold' 
-                    : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
+          {/* Desktop Navigation */}
+          <nav className="hidden md:flex space-x-6">
+            <button
+              onClick={() => setActiveTab('melden')}
+              className={`pb-4 pt-4 px-2 border-b-2 transition-colors ${
+                activeTab === 'melden'
+                  ? 'border-white text-white'
+                  : 'border-transparent text-green-100 hover:text-white'
+              }`}
+            >
+              <div className="flex items-center space-x-1">
+                <FileText className="w-4 h-4" />
+                <span>Melden</span>
+              </div>
+            </button>
+
+            {user && (
+              <button
+                onClick={() => setActiveTab('karte')}
+                className={`pb-4 pt-4 px-2 border-b-2 transition-colors ${
+                  activeTab === 'karte'
+                    ? 'border-white text-white'
+                    : 'border-transparent text-green-100 hover:text-white'
                 }`}
               >
-                Startseite
-              </Button>
-              <Button 
-                variant="ghost" 
-                onClick={() => setCurrentView('products')}
-                className={`px-4 py-2 rounded-md transition-colors whitespace-nowrap min-w-[100px] ${
-                  currentView === 'products' 
-                    ? 'text-green-600 bg-green-50 font-semibold' 
-                    : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
-                }`}
-              >
-                Produkte
-              </Button>
-              <Button 
-                variant="ghost" 
-                onClick={() => setCurrentView('about')}
-                className={`px-4 py-2 rounded-md transition-colors whitespace-nowrap min-w-[100px] ${
-                  currentView === 'about' 
-                    ? 'text-green-600 bg-green-50 font-semibold' 
-                    : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
-                }`}
-              >
-                Über uns
-              </Button>
-              <Button 
-                variant="ghost" 
-                onClick={() => setCurrentView('info')}
-                className={`px-4 py-2 rounded-md transition-colors whitespace-nowrap min-w-[100px] ${
-                  currentView === 'info' 
-                    ? 'text-green-600 bg-green-50 font-semibold' 
-                    : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
-                }`}
-              >
-                Informationen
-              </Button>
-            </div>
+                <div className="flex items-center space-x-1">
+                  <MapPin className="w-4 h-4" />
+                  <span>Karte</span>
+                </div>
+              </button>
+            )}
+
+            <button
+              onClick={() => setActiveTab('meldungen')}
+              className={`pb-4 pt-4 px-2 border-b-2 transition-colors ${
+                activeTab === 'meldungen'
+                  ? 'border-white text-white'
+                  : 'border-transparent text-green-100 hover:text-white'
+              }`}
+            >
+              <div className="flex items-center space-x-1">
+                <Trash2 className="w-4 h-4" />
+                <span>Meldungen</span>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('account')}
+              className={`pb-4 pt-4 px-2 border-b-2 transition-colors ${
+                activeTab === 'account'
+                  ? 'border-white text-white'
+                  : 'border-transparent text-green-100 hover:text-white'
+              }`}
+            >
+              <div className="flex items-center space-x-1">
+                <User className="w-4 h-4" />
+                <span>Account</span>
+              </div>
+            </button>
           </nav>
 
-          {/* User Authentication - Fixed width to prevent shifting */}
-          <div className="hidden md:flex items-center justify-end w-48 flex-shrink-0">
-            {isLoggedIn ? (
-              <div className="flex items-center space-x-3">
-                {/* User Profile Widget - Clickable and without ! */}
-                <div 
-                  className="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg cursor-pointer hover:bg-green-100 transition-colors"
-                  onClick={handleUserAccountClick}
-                >
-                  <User className="w-5 h-5 text-green-600" />
-                  <span className="text-sm font-medium text-green-800">{user?.username}</span>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleLogout}
-                  className="text-red-600 border-red-200 hover:bg-red-50"
-                >
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Abmelden
-                </Button>
-              </div>
+          {/* User Dropdown / Auth Button */}
+          <div className="hidden md:block">
+            {user ? (
+              <UserDropdown user={user} />
             ) : (
               <Button
+                onClick={() => setIsAuthModalOpen(true)}
                 variant="outline"
-                size="sm"
-                onClick={() => setShowAuthModal(true)}
-                className="text-green-600 border-green-200 hover:bg-green-50"
+                className="text-green-600 border-white hover:bg-white"
               >
-                <LogIn className="w-4 h-4 mr-2" />
                 Anmelden
               </Button>
             )}
           </div>
 
-          {/* Mobile Menu Button - Fixed right position */}
-          <div className="md:hidden flex-shrink-0">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowMenu(!showMenu)}
-              className="p-2 w-10 h-10"
-            >
-              {showMenu ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </Button>
-          </div>
+          {/* Mobile menu button */}
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="md:hidden p-2"
+          >
+            {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
         </div>
-        
-        {/* Mobile Menu */}
-        {showMenu && (
-          <div className="md:hidden bg-white border-t border-green-100 px-4 py-2 shadow-lg mt-4">
-            <Button 
-              className="w-full bg-green-500 hover:bg-green-600 text-white mb-4 py-3 rounded-md font-semibold"
-              onClick={() => { setCurrentView('report'); setShowMenu(false); }}
-            >
-              Mülleimer melden
-            </Button>
-            {isLoggedIn && (
-              <Button 
-                variant="ghost" 
-                className={`w-full justify-start mb-2 px-4 py-3 rounded-md transition-colors ${
-                  currentView === 'karte' 
-                    ? 'text-green-600 bg-green-50 font-semibold' 
-                    : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
+
+        {/* Mobile Navigation */}
+        {isMobileMenuOpen && (
+          <div className="md:hidden border-t border-green-500 py-4">
+            <div className="space-y-2">
+              <button
+                onClick={() => {
+                  setActiveTab('melden');
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`w-full text-left px-4 py-2 rounded ${
+                  activeTab === 'melden'
+                    ? 'bg-green-700 text-white'
+                    : 'text-green-100 hover:bg-green-700'
                 }`}
-                onClick={() => { setCurrentView('karte'); setShowMenu(false); }}
               >
-                Karte
-              </Button>
-            )}
-            <Button 
-              variant="ghost" 
-              className={`w-full justify-start mb-2 px-4 py-3 rounded-md transition-colors ${
-                currentView === 'home' 
-                  ? 'text-green-600 bg-green-50 font-semibold' 
-                  : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
-              }`}
-              onClick={() => { setCurrentView('home'); setShowMenu(false); }}
-            >
-              Startseite
-            </Button>
-            <Button 
-              variant="ghost" 
-              className={`w-full justify-start mb-2 px-4 py-3 rounded-md transition-colors ${
-                currentView === 'products' 
-                  ? 'text-green-600 bg-green-50 font-semibold' 
-                  : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
-              }`}
-              onClick={() => { setCurrentView('products'); setShowMenu(false); }}
-            >
-              Produkte
-            </Button>
-            <Button 
-              variant="ghost" 
-              className={`w-full justify-start mb-2 px-4 py-3 rounded-md transition-colors ${
-                currentView === 'about' 
-                  ? 'text-green-600 bg-green-50 font-semibold' 
-                  : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
-              }`}
-              onClick={() => { setCurrentView('about'); setShowMenu(false); }}
-            >
-              Über uns
-            </Button>
-            <Button 
-              variant="ghost" 
-              className={`w-full justify-start mb-4 px-4 py-3 rounded-md transition-colors ${
-                currentView === 'info' 
-                  ? 'text-green-600 bg-green-50 font-semibold' 
-                  : 'text-gray-600 hover:text-green-600 hover:bg-green-50'
-              }`}
-              onClick={() => { setCurrentView('info'); setShowMenu(false); }}
-            >
-              Informationen
-            </Button>
-            
-            {/* Mobile User Menu */}
-            <div className="border-t border-gray-200 pt-4 space-y-2">
-              {isLoggedIn ? (
-                <div className="space-y-2">
-                  {/* Mobile User Profile Widget - Clickable and without ! */}
-                  <div 
-                    className="flex items-center gap-2 px-4 py-2 bg-green-50 border border-green-200 rounded-lg cursor-pointer hover:bg-green-100 transition-colors"
-                    onClick={() => { handleUserAccountClick(); setShowMenu(false); }}
-                  >
-                    <User className="w-5 h-5 text-green-600" />
-                    <span className="text-sm font-medium text-green-800">{user?.username}</span>
+                <div className="flex items-center space-x-2">
+                  <FileText className="w-4 h-4" />
+                  <span>Melden</span>
+                </div>
+              </button>
+
+              {user && (
+                <button
+                  onClick={() => {
+                    setActiveTab('karte');
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className={`w-full text-left px-4 py-2 rounded ${
+                    activeTab === 'karte'
+                      ? 'bg-green-700 text-white'
+                      : 'text-green-100 hover:bg-green-700'
+                  }`}
+                >
+                  <div className="flex items-center space-x-2">
+                    <MapPin className="w-4 h-4" />
+                    <span>Karte</span>
                   </div>
-                  <Button
-                    variant="ghost"
-                    className="w-full justify-start text-red-600 hover:text-red-800 hover:bg-red-50"
-                    onClick={() => { handleLogout(); setShowMenu(false); }}
-                  >
-                    <LogOut className="w-4 h-4 mr-2" />
-                    Abmelden
-                  </Button>
+                </button>
+              )}
+
+              <button
+                onClick={() => {
+                  setActiveTab('meldungen');
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`w-full text-left px-4 py-2 rounded ${
+                  activeTab === 'meldungen'
+                    ? 'bg-green-700 text-white'
+                    : 'text-green-100 hover:bg-green-700'
+                }`}
+              >
+                <div className="flex items-center space-x-2">
+                  <Trash2 className="w-4 h-4" />
+                  <span>Meldungen</span>
+                </div>
+              </button>
+
+              <button
+                onClick={() => {
+                  setActiveTab('account');
+                  setIsMobileMenuOpen(false);
+                }}
+                className={`w-full text-left px-4 py-2 rounded ${
+                  activeTab === 'account'
+                    ? 'bg-green-700 text-white'
+                    : 'text-green-100 hover:bg-green-700'
+                }`}
+              >
+                <div className="flex items-center space-x-2">
+                  <User className="w-4 h-4" />
+                  <span>Account</span>
+                </div>
+              </button>
+
+              <Separator className="my-2 bg-green-500" />
+              
+              {user ? (
+                <div className="px-4 py-2">
+                  <UserDropdown user={user} />
                 </div>
               ) : (
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start text-green-600 hover:text-green-800 hover:bg-green-50"
-                  onClick={() => { setShowAuthModal(true); setShowMenu(false); }}
+                <button
+                  onClick={() => {
+                    setIsAuthModalOpen(true);
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="w-full text-left px-4 py-2 rounded text-green-100 hover:bg-green-700"
                 >
-                  <LogIn className="w-4 h-4 mr-2" />
                   Anmelden
-                </Button>
+                </button>
               )}
             </div>
           </div>
         )}
       </div>
     </header>
-  );
-
-  const renderReportForm = () => (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50">
-      {renderHeader()}
-      
-      <div className="container mx-auto px-4 py-8 max-w-2xl">
-        <Card className="bg-white shadow-lg">
-          <CardHeader>
-            <CardTitle className="text-2xl text-green-800 text-center">
-              🗑️ Mülleimer melden
-            </CardTitle>
-            <p className="text-gray-600 text-center">
-              Helfen Sie uns, Ihre Stadt sauber zu halten
-            </p>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              
-              {/* Enhanced Location Picker */}
-              <EnhancedLocationPicker
-                value={formData.location}
-                coordinates={locationCoordinates}
-                onChange={handleLocationChange}
-                onPartnerMunicipalityChange={handlePartnerMunicipalityChange}
-                onWasteBinSelect={handleWasteBinSelect}
-                onWasteBinIdChange={(id) => {
-                  console.log('🗑️ CRITICAL - Updating wasteBinId in formData to:', id);
-                  setFormData(prev => ({ ...prev, wasteBinId: id }));
-                }}
-                wasteBinId={formData.wasteBinId}
-              />
-
-              {/* Problem Type */}
-              <ProblemTypeSelect
-                value={formData.issueType}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, issueType: value }))}
-              />
-
-              {/* Photo Upload */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  📸 Foto (optional)
-                </label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-green-400 transition-colors">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handlePhotoUpload}
-                    className="hidden"
-                    id="photo-upload"
-                  />
-                  <label
-                    htmlFor="photo-upload"
-                    className="cursor-pointer flex flex-col items-center space-y-2"
-                  >
-                    <Upload className="w-8 h-8 text-gray-400" />
-                    <span className="text-gray-600">
-                      {formData.photo ? formData.photo.name : 'Foto auswählen'}
-                    </span>
-                  </label>
-                </div>
-              </div>
-
-              {/* Comment */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  💬 Zusätzliche Informationen (optional)
-                </label>
-                <Textarea
-                  value={formData.comment}
-                  onChange={(e) => setFormData(prev => ({ ...prev, comment: e.target.value }))}
-                  placeholder="Beschreiben Sie das Problem genauer..."
-                  className="resize-none"
-                  rows={3}
-                />
-              </div>
-
-              {/* Submit Button */}
-              <Button
-                type="submit"
-                disabled={!canSubmitReport || isSubmitting}
-                className={`w-full py-3 text-lg font-semibold ${
-                  canSubmitReport && !isSubmitting
-                    ? 'bg-green-500 hover:bg-green-600 text-white'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
-              >
-                {isSubmitting ? 'Wird gesendet...' : 'Meldung absenden'}
-              </Button>
-
-              {/* Information Box */}
-              {!formData.partnerMunicipality && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <div className="flex items-start space-x-2">
-                    <Info className="w-5 h-5 text-yellow-600 mt-0.5" />
-                    <div>
-                      <p className="text-sm text-yellow-800 font-medium">
-                        Standort außerhalb der Partnerstädte
-                      </p>
-                      <p className="text-sm text-yellow-700 mt-1">
-                        Derzeit unterstützen wir nur Meldungen in Nürnberg, Erlangen und Fürth. 
-                        Bitte wählen Sie einen Standort in einer dieser Städte aus.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </form>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-
-  const renderHome = () => (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50">
-      {renderHeader()}
-      
-      {/* Hero Section with Slideshow */}
-      <section className="px-4 py-12 text-center relative overflow-hidden h-96 md:h-[500px]">
-        {/* Background Images */}
-        {cityImages.map((image, index) => (
-          <div
-            key={index}
-            className={`absolute inset-0 transition-opacity duration-1000 ${
-              index === currentImageIndex ? 'opacity-100' : 'opacity-0'
-            }`}
-            style={{
-              backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.3)), url('${image}')`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              backgroundRepeat: 'no-repeat',
-              animation: index === currentImageIndex ? 'zoom-in 4s ease-in-out' : 'none',
-            }}
-          />
-        ))}
-        
-        {/* Content */}
-        <div className="container mx-auto max-w-4xl relative z-10 h-full flex flex-col justify-center">
-          <h2 className="text-3xl md:text-5xl font-bold text-white mb-6 drop-shadow-2xl">
-            Hilf mit, deine Stadt sauber zu halten!
-          </h2>
-          <p className="text-lg text-white mb-8 max-w-2xl mx-auto drop-shadow-lg">
-            Melde überfüllte oder beschädigte Mülleimer schnell und einfach. 
-            Gemeinsam sorgen wir für eine saubere und lebenswerte Stadt.
-          </p>
-          <Button 
-            onClick={() => setCurrentView('report')}
-            className="bg-green-500 hover:bg-green-600 text-white px-8 py-3 text-lg rounded-full shadow-lg transform transition hover:scale-105 font-semibold mx-auto"
-          >
-            Mülleimer melden <ArrowRight className="ml-2 w-5 h-5" />
-          </Button>
-        </div>
-
-        {/* Slideshow Indicators */}
-        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2 z-20">
-          {cityImages.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => setCurrentImageIndex(index)}
-              className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                index === currentImageIndex 
-                  ? 'bg-white shadow-lg' 
-                  : 'bg-white/50 hover:bg-white/80'
-              }`}
-            />
-          ))}
-        </div>
-      </section>
-
-      {/* How it works */}
-      <section className="px-4 py-12 bg-white">
-        <div className="container mx-auto max-w-4xl">
-          <h3 className="text-2xl font-bold text-center text-gray-800 mb-12">
-            So funktioniert's – in nur 3 Schritten
-          </h3>
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Camera className="w-8 h-8 text-green-600" />
-              </div>
-              <h4 className="font-semibold mb-2">1. Foto machen</h4>
-              <p className="text-gray-600">Fotografiere den problematischen Mülleimer</p>
-            </div>
-            <div className="text-center">
-              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <MapPin className="w-8 h-8 text-blue-600" />
-              </div>
-              <h4 className="font-semibold mb-2">2. Standort senden</h4>
-              <p className="text-gray-600">Automatische GPS-Erkennung oder manuelle Eingabe</p>
-            </div>
-            <div className="text-center">
-              <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle className="w-8 h-8 text-purple-600" />
-              </div>
-              <h4 className="font-semibold mb-2">3. Meldung absenden</h4>
-              <p className="text-gray-600">Fertig! Die Stadtreinigung wird informiert</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Impact Counter with Animation */}
-      <section className="px-4 py-12 bg-green-50">
-        <div className="container mx-auto max-w-2xl text-center">
-          <h3 className="text-2xl font-bold text-green-800 mb-4">Unser gemeinsamer Erfolg</h3>
-          <div className="bg-white rounded-xl p-8 shadow-sm">
-            <div className="text-4xl font-bold text-green-600 mb-2 transition-all duration-300">
-              {statsLoading ? '...' : displayCount.toLocaleString('de-DE')}
-            </div>
-            <p className="text-gray-600">Mülleimer bereits gemeldet</p>
-            <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <div className="font-semibold text-blue-600">
-                  {statsLoading ? '...' : statistics.processed_reports.toLocaleString('de-DE')}
-                </div>
-                <div className="text-gray-500">Bereits bearbeitet</div>
-              </div>
-              <div>
-                <div className="font-semibold text-orange-600">
-                  {statsLoading ? '...' : statistics.in_progress_reports.toLocaleString('de-DE')}
-                </div>
-                <div className="text-gray-500">In Bearbeitung</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-    </div>
-  );
-
-  const renderProducts = () => (
-    <div className="min-h-screen bg-gray-50">
-      {renderHeader()}
-      
-      {/* Hero Section */}
-      <section className="px-4 py-16 bg-gradient-to-br from-blue-600 to-green-600 text-white">
-        <div className="container mx-auto max-w-4xl text-center">
-          <h1 className="text-4xl md:text-5xl font-bold mb-6">
-            Intelligente Sensorik für eine saubere Stadt
-          </h1>
-          <p className="text-xl md:text-2xl mb-8 opacity-90">
-            Automatische Füllstandsmessung für eine effiziente Müllentsorgung.
-          </p>
-          <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center mx-auto">
-            <Zap className="w-12 h-12 text-white" />
-          </div>
-        </div>
-      </section>
-
-      {/* Product Highlights */}
-      <section className="px-4 py-16 bg-white">
-        <div className="container mx-auto max-w-6xl">
-          <h2 className="text-3xl font-bold text-center text-gray-800 mb-12">
-            Produkthighlights
-          </h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <Card className="text-center">
-              <CardHeader>
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <CheckCircle className="w-8 h-8 text-green-600" />
-                </div>
-                <CardTitle>Kompakte Bauweise</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600">
-                  Kleiner Formfaktor - passt in jeden Mülleimer ohne störende Auffälligkeit.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="text-center">
-              <CardHeader>
-                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Battery className="w-8 h-8 text-blue-600" />
-                </div>
-                <CardTitle>Batteriebetrieben</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600">
-                  Langlebige Batterien für jahrelangen wartungsfreien Betrieb.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="text-center">
-              <CardHeader>
-                <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Wifi className="w-8 h-8 text-purple-600" />
-                </div>
-                <CardTitle>Drahtlose Übertragung</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600">
-                  NB-IoT oder Wi-Fi Konnektivität für zuverlässige Datenübertragung.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="text-center">
-              <CardHeader>
-                <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Database className="w-8 h-8 text-orange-600" />
-                </div>
-                <CardTitle>Backend-Integration</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600">
-                  Direkte Datenübertragung an das CleanCity Backend-System.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="text-center">
-              <CardHeader>
-                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Monitor className="w-8 h-8 text-red-600" />
-                </div>
-                <CardTitle>API-Schnittstelle</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600">
-                  Nahtlose Verbindung zu öffentlichen Service-Dashboards.
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="text-center">
-              <CardHeader>
-                <div className="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Zap className="w-8 h-8 text-teal-600" />
-                </div>
-                <CardTitle>Intelligente Sensoren</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-600">
-                  Präzise Füllstandsmessung mit fortschrittlicher Sensortechnologie.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      {/* Demo Section */}
-      <section className="px-4 py-16 bg-green-50">
-        <div className="container mx-auto max-w-4xl text-center">
-          <Card className="bg-white shadow-lg">
-            <CardHeader>
-              <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Leaf className="w-10 h-10 text-green-600" />
-              </div>
-              <CardTitle className="text-2xl">Pilotprojekt in Nürnberg</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-lg text-gray-600 mb-6">
-                Sensor bald verfügbar – CleanCity testet aktuell erste Pilotgeräte in Nürnberg.
-              </p>
-              <p className="text-gray-500 mb-8">
-                Unsere intelligenten Sensoren werden in den kommenden Monaten in ausgewählten 
-                Stadtteilen getestet, um die Effizienz der Müllentsorgung zu optimieren.
-              </p>
-              <Button 
-                className="bg-green-500 hover:bg-green-600 text-white px-8 py-3 text-lg rounded-full"
-                onClick={() => window.location.href = 'mailto:info@cleancity.de?subject=Interesse an CleanCity Sensoren'}
-              >
-                Mehr erfahren
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-      </section>
-    </div>
   );
 
   const renderKarte = () => (
@@ -958,58 +381,26 @@ const Index = () => {
           🗺️ Interaktive Mülleimer-Karte Nürnberg
         </h1>
         
-        <div className="bg-white rounded-lg shadow-lg p-6 space-y-6">
-          {/* Address Search Field */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              📍 Adresse eingeben
-            </label>
-            <form onSubmit={handleAddressSubmit} className="flex gap-2">
-              <Input
-                type="text"
-                value={mapAddress}
-                onChange={(e) => setMapAddress(e.target.value)}
-                placeholder="Adresse eingeben..."
-                className="flex-1"
-              />
-              <Button type="submit" disabled={!mapAddress.trim()}>
-                <MapPin className="w-4 h-4 mr-2" />
-                Navigieren
-              </Button>
-            </form>
-          </div>
-
-          {/* Interactive Map */}
-          <div className="relative">
-            <iframe 
-              ref={mapIframeRef}
-              id="map-iframe"
-              src="https://routenplanung.vercel.app/nbg_wastebaskets_map.html"
-              className="w-full h-96 md:h-[500px] border rounded-lg shadow-sm"
-              title="Interaktive Mülleimer Karte"
-              style={{ minHeight: '400px' }}
-            />
-          </div>
-
-          {/* NEW: WasteBasket ID Field */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              🗑️ Ausgewählter Mülleimer
-            </label>
-            <Input
-              type="text"
-              value={selectedWasteBasketId || 'Kein Mülleimer ausgewählt'}
-              readOnly
-              className={`font-medium ${
-                selectedWasteBasketId 
-                  ? 'bg-green-50 border-green-200 text-green-800' 
-                  : 'bg-gray-100 text-gray-500'
-              }`}
-            />
-          </div>
+        <div className="bg-white rounded-lg shadow-lg p-6">
+          {/* Native Leaflet Map Component */}
+          <NativeLeafletMap
+            onWasteBasketSelect={(binId, binLocation) => {
+              console.log('Waste bin selected:', binId, binLocation);
+              setSelectedWasteBasketId(binId);
+              setFormData(prev => ({ 
+                ...prev, 
+                wasteBinId: binId,
+                location: binLocation || `Standort Mülleimer ${binId}`
+              }));
+              toast({
+                title: "Mülleimer ausgewählt",
+                description: `WasteBasket ID: ${binId} - ${binLocation}`,
+              });
+            }}
+          />
 
           {/* Action Button */}
-          <div className="flex justify-center">
+          <div className="flex justify-center mt-6">
             <Button
               onClick={handleReportWasteBasket}
               disabled={!selectedWasteBasketId}
@@ -1022,609 +413,255 @@ const Index = () => {
               {selectedWasteBasketId ? 'Mülleimer melden' : 'Zuerst Mülleimer auswählen'}
             </Button>
           </div>
-
-          {/* Instructions */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h3 className="font-semibold text-blue-800 mb-2">💡 So funktioniert's:</h3>
-            <ol className="text-sm text-blue-700 space-y-1 list-decimal list-inside">
-              <li>Geben Sie eine Adresse ein und klicken Sie "Navigieren" um zur gewünschten Stelle zu gelangen</li>
-              <li>Klicken Sie auf einen Mülleimer-Marker in der Karte</li>
-              <li>Die WasteBasket ID wird automatisch angezeigt</li>
-              <li>Klicken Sie "Mülleimer melden" um das Meldeformular zu öffnen</li>
-            </ol>
-          </div>
         </div>
       </div>
     </div>
   );
 
-  const renderConfirmation = () => (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50">
-      {renderHeader()}
-      
-      <div className="container mx-auto px-4 py-16 text-center max-w-2xl">
-        <div className="bg-white rounded-xl p-8 shadow-lg">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle className="w-12 h-12 text-green-600" />
-          </div>
-          
-          <h2 className="text-3xl font-bold text-green-800 mb-4">
-            Vielen Dank!
-          </h2>
-          
-          <p className="text-lg text-gray-600 mb-8">
-            Ihre Meldung wurde erfolgreich übermittelt. Die Stadtreinigung wird schnellstmöglich reagieren.
-          </p>
-
-          <div className="space-y-4 mb-8">
-            <div className="bg-orange-50 p-4 rounded-lg">
-              <h3 className="font-semibold text-orange-800 mb-2">
-                📋 Meldung jetzt ansehen
-              </h3>
-              <p className="text-sm text-orange-600 mb-3">
-                Sehen Sie Ihre eingereichten Meldungen und deren Status
-              </p>
-              <Button 
-                variant="outline" 
-                className="w-full"
-                onClick={() => navigate('/account')}
-              >
-                Meldungen ansehen
-              </Button>
-            </div>
-
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <h3 className="font-semibold text-blue-800 mb-2">
-                🔔 Benachrichtigungen erhalten?
-              </h3>
-              <p className="text-sm text-blue-600 mb-3">
-                Möchten Sie informiert werden, wenn dieser Mülleimer geleert wurde?
-              </p>
-              <Button 
-                variant="outline" 
-                className="w-full"
-                onClick={() => setShowNotificationDialog(true)}
-              >
-                Ja, benachrichtigen
-              </Button>
-            </div>
-
-            <div className="bg-green-50 p-4 rounded-lg">
-              <h3 className="font-semibold text-green-800 mb-2">
-                📢 CleanCity weiterempfehlen
-              </h3>
-              <p className="text-sm text-green-600 mb-3">
-                Erzählen Sie anderen von CleanCity!
-              </p>
-              <Button 
-                variant="outline" 
-                className="w-full"
-                onClick={handleShare}
-              >
-                <Share2 className="w-4 h-4 mr-2" />
-                App teilen
-              </Button>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <Button
-              onClick={() => setCurrentView('report')}
-              className="w-full bg-green-500 hover:bg-green-600"
-            >
-              Weiteren Mülleimer melden
-            </Button>
-            <Button
-              onClick={() => setCurrentView('home')}
-              variant="outline"
-              className="w-full"
-            >
-              Zur Startseite
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      <NotificationDialog
-        isOpen={showNotificationDialog}
-        onClose={() => setShowNotificationDialog(false)}
-        onSubmit={handleNotificationRequest}
-      />
-    </div>
-  );
-
-  const renderAbout = () => (
+  const renderMelden = () => (
     <div className="min-h-screen bg-gray-50">
       {renderHeader()}
       
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <h2 className="text-3xl font-bold text-green-800 mb-8">Über uns</h2>
+      <div className="container mx-auto px-4 py-8 max-w-2xl">
+        <h1 className="text-2xl font-bold mb-6 text-center text-green-800">
+          🗑️ Mülleimer Problem melden
+        </h1>
         
-        <div className="grid md:grid-cols-1 gap-8">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Leaf className="w-5 h-5 mr-2 text-green-600" />
-                Unsere Mission
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-gray-600">
-                CleanCity ist eine innovative Bürgerplattform, die es jedem ermöglicht, aktiv zur Sauberkeit und Lebensqualität unserer Stadt beizutragen. Unser Ziel ist es, die Kommunikation zwischen Bürgern und Stadtverwaltung zu vereinfachen und zu beschleunigen.
-              </p>
-              <p className="text-gray-600">
-                Durch die einfache Meldung von überfüllten oder beschädigten Mülleimern helfen Sie dabei, unsere Stadt noch sauberer und lebenswerter zu machen. Jede Meldung zählt und trägt zu einem besseren Zusammenleben bei.
-              </p>
-            </CardContent>
-          </Card>
+        <div className="bg-white rounded-lg shadow-lg p-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <EnhancedLocationPicker
+              value={formData.location}
+              onChange={(location, coordinates) => {
+                setFormData(prev => ({ ...prev, location, coordinates }));
+              }}
+              onPartnerMunicipalityChange={(municipality) => {
+                setFormData(prev => ({ ...prev, partnerMunicipality: municipality }));
+              }}
+              onWasteBinSelect={(binId, location) => {
+                console.log('Waste bin selected from picker:', binId, location);
+                setFormData(prev => ({ ...prev, wasteBinId: binId, location }));
+              }}
+              coordinates={formData.coordinates}
+              onWasteBinIdChange={(binId) => {
+                console.log('Waste bin ID changed from picker:', binId);
+                setFormData(prev => ({ ...prev, wasteBinId: binId }));
+              }}
+              wasteBinId={formData.wasteBinId}
+            />
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Unser Team</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600 mb-4">
-                CleanCity wurde in enger Zusammenarbeit mit der Stadtverwaltung und lokalen Bürgerinitiativen entwickelt. Unser Team besteht aus:
-              </p>
-              <ul className="list-disc list-inside space-y-2 text-gray-600">
-                <li>Stadtplanungsexperten</li>
-                <li>Softwareentwicklern</li>
-                <li>UX/UI-Designern</li>
-                <li>Umweltschutzbeauftragten</li>
-              </ul>
-            </CardContent>
-          </Card>
+            <ProblemTypeSelect
+              value={formData.problemType}
+              onChange={(problemType) => setFormData(prev => ({ ...prev, problemType }))}
+            />
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Kontakt</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center space-x-3">
-                  <Phone className="w-5 h-5 text-green-600" />
-                  <span>+49 (0) 123 456 789</span>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <Info className="w-5 h-5 text-green-600" />
-                  <span>info@cleancity.de</span>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <MapPin className="w-5 h-5 text-green-600" />
-                  <span>Rathaus, Hauptstraße 1, 12345 Musterstadt</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Zusätzliche Beschreibung (optional)
+              </label>
+              <textarea
+                value={formData.description}
+                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Beschreiben Sie das Problem genauer..."
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                rows={4}
+              />
+            </div>
+
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full bg-green-600 hover:bg-green-700 text-white py-3 text-lg font-semibold"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                  Wird eingereicht...
+                </>
+              ) : (
+                'Meldung einreichen'
+              )}
+            </Button>
+          </form>
         </div>
       </div>
     </div>
   );
 
-  const renderInfo = () => (
+  const renderMeldungen = () => (
     <div className="min-h-screen bg-gray-50">
       {renderHeader()}
       
-      <div className="container mx-auto px-4 py-16 max-w-4xl">
-        <h2 className="text-3xl font-bold text-green-800 mb-8">Informationen</h2>
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <h1 className="text-2xl font-bold mb-6 text-center text-green-800">
+          📊 Meldungen Dashboard
+        </h1>
+
+        {/* Statistics Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                <FileText className="w-6 h-6 text-blue-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Gesamt Meldungen</p>
+                <p className="text-2xl font-bold text-gray-900">{statistics.total_reports}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                <Loader2 className="w-6 h-6 text-orange-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">In Bearbeitung</p>
+                <p className="text-2xl font-bold text-gray-900">{statistics.in_progress_reports}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex items-center">
+              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                <Trash2 className="w-6 h-6 text-green-600" />
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-600">Erledigt</p>
+                <p className="text-2xl font-bold text-gray-900">{statistics.processed_reports}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Reports Table */}
+        <div className="bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900">Alle Meldungen</h2>
+          </div>
+          <div className="overflow-x-auto">
+            {reports.length > 0 ? (
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Datum
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Standort
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Mülleimer ID
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Problem
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {reports.map((report) => (
+                    <tr key={report.id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {new Date(report.created_at).toLocaleDateString('de-DE')}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {report.location}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {report.waste_bin_id || 'Nicht angegeben'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {report.problem_type}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          report.status === 'processed' 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-orange-100 text-orange-800'
+                        }`}>
+                          {report.status === 'processed' ? 'Erledigt' : 'In Bearbeitung'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="px-6 py-12 text-center">
+                <Trash2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500">Noch keine Meldungen vorhanden.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderAccount = () => (
+    <div className="min-h-screen bg-gray-50">
+      {renderHeader()}
+      
+      <div className="container mx-auto px-4 py-8 max-w-2xl">
+        <h1 className="text-2xl font-bold mb-6 text-center text-green-800">
+          👤 Mein Account
+        </h1>
         
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* FAQ */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Info className="w-5 h-5 mr-2" />
-                Häufige Fragen
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
+        <div className="bg-white rounded-lg shadow-lg p-6">
+          {user ? (
+            <div className="space-y-4">
               <div>
-                <h4 className="font-semibold mb-1">Wie funktioniert CleanCity?</h4>
-                <p className="text-sm text-gray-600">
-                  Sie melden problematische Mülleimer, die Stadtreinigung erhält automatisch eine Benachrichtigung und kümmert sich um die Behebung.
+                <label className="block text-sm font-medium text-gray-700">E-Mail</label>
+                <p className="mt-1 text-sm text-gray-900">{user.email}</p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700">Registriert seit</label>
+                <p className="mt-1 text-sm text-gray-900">
+                  {new Date(user.created_at).toLocaleDateString('de-DE')}
                 </p>
               </div>
+
               <div>
-                <h4 className="font-semibold mb-1">Was passiert mit meinen Meldungen?</h4>
-                <p className="text-sm text-gray-600">
-                  Alle Meldungen werden direkt an die zuständige Abteilung weitergeleitet und in der Regel innerhalb von 24-48 Stunden bearbeitet.
-                </p>
+                <label className="block text-sm font-medium text-gray-700">Benutzer ID</label>
+                <p className="mt-1 text-sm text-gray-500 font-mono">{user.id}</p>
               </div>
-              <div>
-                <h4 className="font-semibold mb-1">Werden meine Daten gespeichert?</h4>
-                <p className="text-sm text-gray-600">
-                  Nein, die App funktioniert vollständig anonymous. Es werden keine persönlichen Daten gespeichert oder weitergegeben.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Legal */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Shield className="w-5 h-5 mr-2" />
-                Rechtliches
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button 
-                variant="outline" 
-                className="w-full justify-start"
-                onClick={() => setCurrentView('datenschutz')}
-              >
-                Datenschutzerklärung
+            </div>
+          ) : (
+            <div className="text-center">
+              <p className="text-gray-500 mb-4">Sie sind nicht angemeldet.</p>
+              <Button onClick={() => setIsAuthModalOpen(true)}>
+                Jetzt anmelden
               </Button>
-              <Button 
-                variant="outline" 
-                className="w-full justify-start"
-                onClick={() => setCurrentView('impressum')}
-              >
-                Impressum
-              </Button>
-              <Button 
-                variant="outline" 
-                className="w-full justify-start"
-                onClick={() => setCurrentView('nutzungsbedingungen')}
-              >
-                Nutzungsbedingungen
-              </Button>
-              <div className="pt-4 border-t">
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-start"
-                  onClick={() => window.location.href = 'mailto:stadtverwaltung@musterstadt.de?subject=Anfrage über CleanCity'}
-                >
-                  <Phone className="w-4 h-4 mr-2" />
-                  Stadtverwaltung kontaktieren
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* App Download */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Mobile Apps</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-gray-600 mb-4">
-                CleanCity bald auch als native App verfügbar:
-              </p>
-              <div className="space-y-2">
-                <Button variant="outline" className="w-full" disabled>
-                  📱 Im App Store (demnächst)
-                </Button>
-                <Button variant="outline" className="w-full" disabled>
-                  🤖 Bei Google Play (demnächst)
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Version Info */}
-          <Card>
-            <CardHeader>
-              <CardTitle>App-Information</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span>Version:</span>
-                  <span>1.0.0 Beta</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Letztes Update:</span>
-                  <span>Dezember 2024</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Entwickelt für:</span>
-                  <span>Stadtverwaltung</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 
-  const renderDatenschutz = () => (
-    <div className="min-h-screen bg-gray-50">
-      {renderHeader()}
-      
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <Card>
-          <CardHeader>
-            <CardTitle>Datenschutzerklärung für CleanCity</CardTitle>
-            <p className="text-gray-600">Stand: Dezember 2024</p>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <section>
-              <h2 className="text-xl font-semibold mb-3">1. Verantwortlicher</h2>
-              <p className="text-gray-700">
-                Verantwortlich für die Datenverarbeitung ist:<br/>
-                Stadtverwaltung Musterstadt<br/>
-                Hauptstraße 1<br/>
-                12345 Musterstadt<br/>
-                E-Mail: datenschutz@musterstadt.de<br/>
-                Telefon: +49 (0) 123 456 789
-              </p>
-            </section>
+  let content;
 
-            <section>
-              <h2 className="text-xl font-semibold mb-3">2. Erhebung und Verarbeitung personenbezogener Daten</h2>
-              <p className="text-gray-700 mb-3">
-                Bei der Nutzung von CleanCity werden folgende Daten verarbeitet:
-              </p>
-              <ul className="list-disc list-inside space-y-2 text-gray-700">
-                <li>Standortdaten (GPS-Koordinaten) zur Identifizierung der gemeldeten Mülleimer</li>
-                <li>Hochgeladene Fotos zur Dokumentation des Problems</li>
-                <li>Technische Daten wie IP-Adresse und Browser-Informationen</li>
-                <li>Zeitstempel der Meldungen</li>
-              </ul>
-            </section>
+  if (activeTab === 'karte' && user) {
+    content = renderKarte();
+  } else if (activeTab === 'meldungen') {
+    content = renderMeldungen();
+  } else if (activeTab === 'account') {
+    content = renderAccount();
+  } else {
+    content = renderMelden();
+  }
 
-            <section>
-              <h2 className="text-xl font-semibold mb-3">3. Zweck der Datenverarbeitung</h2>
-              <p className="text-gray-700">
-                Die erhobenen Daten werden ausschließlich zur Bearbeitung Ihrer Meldungen über problematische Mülleimer verwendet. Die Standortdaten ermöglichen es der Stadtreinigung, den gemeldeten Mülleimer zu finden und das Problem zu beheben.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">4. Rechtsgrundlage</h2>
-              <p className="text-gray-700">
-                Die Verarbeitung erfolgt auf Grundlage von Art. 6 Abs. 1 lit. e DSGVO (Wahrnehmung einer Aufgabe im öffentlichen Interesse) zur Gewährleistung der Stadtsauberkeit.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">5. Speicherdauer</h2>
-              <p className="text-gray-700">
-                Die Daten werden nur so lange gespeichert, wie es für die Bearbeitung der Meldung erforderlich ist. Nach Behebung des Problems werden die Daten binnen 30 Tagen gelöscht.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">6. Ihre Rechte</h2>
-              <p className="text-gray-700 mb-3">
-                Sie haben folgende Rechte bezüglich Ihrer personenbezogener Daten:
-              </p>
-              <ul className="list-disc list-inside space-y-2 text-gray-700">
-                <li>Recht auf Auskunft (Art. 15 DSGVO)</li>
-                <li>Recht auf Berichtigung (Art. 16 DSGVO)</li>
-                <li>Recht auf Löschung (Art. 17 DSGVO)</li>
-                <li>Recht auf Einschränkung der Verarbeitung (Art. 18 DSGVO)</li>
-                <li>Recht auf Beschwerde bei einer Aufsichtsbehörde (Art. 77 DSGVO)</li>
-              </ul>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">7. Kontakt</h2>
-              <p className="text-gray-700">
-                Bei Fragen zum Datenschutz wenden Sie sich bitte an unseren Datenschutzbeauftragten unter datenschutz@musterstadt.de.
-              </p>
-            </section>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-
-  const renderImpressum = () => (
-    <div className="min-h-screen bg-gray-50">
-      {renderHeader()}
-      
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <Card>
-          <CardHeader>
-            <CardTitle>Impressum</CardTitle>
-            <p className="text-gray-600">Angaben gemäß § 5 TMG</p>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <section>
-              <h2 className="text-xl font-semibold mb-3">Anbieter</h2>
-              <div className="text-gray-700">
-                <p><strong>Stadtverwaltung Musterstadt</strong></p>
-                <p>Hauptstraße 1</p>
-                <p>12345 Musterstadt</p>
-                <p>Deutschland</p>
-              </div>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">Kontakt</h2>
-              <div className="text-gray-700">
-                <p><strong>Telefon:</strong> +49 (0) 123 456 789</p>
-                <p><strong>Fax:</strong> +49 (0) 123 456 790</p>
-                <p><strong>E-Mail:</strong> info@musterstadt.de</p>
-                <p><strong>Website:</strong> www.musterstadt.de</p>
-              </div>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">Vertretungsberechtigte</h2>
-              <div className="text-gray-700">
-                <p><strong>Bürgermeister:</strong> Max Mustermann</p>
-                <p><strong>Stellvertretung:</strong> Maria Musterfrau</p>
-              </div>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">Umsatzsteuer-Identifikationsnummer</h2>
-              <p className="text-gray-700">
-                Gemäß § 27a Umsatzsteuergesetz: DE123456789
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">Aufsichtsbehörde</h2>
-              <div className="text-gray-700">
-                <p>Regierungspräsidium Musterland</p>
-                <p>Kommunalaufsicht</p>
-                <p>Behördenstraße 10</p>
-                <p>12345 Musterland</p>
-              </div>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">Verantwortlich für den Inhalt</h2>
-              <div className="text-gray-700">
-                <p>Nach § 55 Abs. 2 RStV:</p>
-                <p><strong>Dr. Sarah Schmidt</strong></p>
-                <p>Leiterin Öffentlichkeitsarbeit</p>
-                <p>Stadtverwaltung Musterstadt</p>
-                <p>Hauptstraße 1</p>
-                <p>12345 Musterstadt</p>
-              </div>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">Haftungsausschluss</h2>
-              <div className="text-gray-700 space-y-3">
-                <div>
-                  <h3 className="font-semibold">Inhalt des Onlineangebotes</h3>
-                  <p>Die Stadtverwaltung übernimmt keinerlei Gewähr für die Aktualität, Korrektheit, Vollständigkeit oder Qualität der bereitgestellten Informationen.</p>
-                </div>
-                <div>
-                  <h3 className="font-semibold">Verweise und Links</h3>
-                  <p>Bei direkten oder indirekten Verweisen auf fremde Webseiten, die außerhalb des Verantwortungsbereiches liegen, würde eine Haftung für Schäden, die durch die Nutzung der Plattform entstehen, ausgeschlossen.</p>
-                </div>
-              </div>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">Urheberrecht</h2>
-              <p className="text-gray-700">
-                Die durch die Stadtverwaltung erstellten Inhalte und Werke auf diesen Seiten unterliegen dem deutschen Urheberrecht. Die Vervielfältigung, Bearbeitung, Verbreitung und jede Art der Verwertung außerhalb der Grenzen des Urheberrechtes bedürfen der schriftlichen Zustimmung der Stadtverwaltung.
-              </p>
-            </section>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-
-  const renderNutzungsbedingungen = () => (
-    <div className="min-h-screen bg-gray-50">
-      {renderHeader()}
-      
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <Card>
-          <CardHeader>
-            <CardTitle>Nutzungsbedingungen für CleanCity</CardTitle>
-            <p className="text-gray-600">Stand: Dezember 2024</p>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <section>
-              <h2 className="text-xl font-semibold mb-3">1. Geltungsbereich</h2>
-              <p className="text-gray-700">
-                Diese Nutzungsbedingungen gelten für die Nutzung der CleanCity-Plattform, die von der Stadtverwaltung Musterstadt betrieben wird. Mit der Nutzung der Plattform erkennen Sie diese Bedingungen an.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">2. Zweck der Plattform</h2>
-              <p className="text-gray-700">
-                CleanCity dient der Meldung von überfüllten oder beschädigten Mülleimern im Stadtgebiet. Die Plattform ermöglicht eine direkte Kommunikation zwischen Bürgern und der Stadtreinigung.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">3. Nutzerverhalten</h2>
-              <p className="text-gray-700 mb-3">
-                Bei der Nutzung von CleanCity verpflichten Sie sich:
-              </p>
-              <ul className="list-disc list-inside space-y-2 text-gray-700">
-                <li>Nur wahrheitsgemäße Meldungen abzugeben</li>
-                <li>Keine missbräuchlichen oder falschen Meldungen zu erstellen</li>
-                <li>Keine beleidigenden oder diskriminierenden Inhalte zu veröffentlichen</li>
-                <li>Die Privatsphäre anderer zu respektieren</li>
-                <li>Keine urheberrechtlich geschützten Inhalte ohne Erlaubnis hochzuladen</li>
-              </ul>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">4. Meldungen und Fotos</h2>
-              <p className="text-gray-700">
-                Hochgeladene Fotos sollten ausschließlich den gemeldeten Mülleimer und dessen unmittelbare Umgebung zeigen. Personen sollten nicht erkennbar fotografiert werden. Die Stadtverwaltung behält sich vor, ungeeignete Inhalte zu entfernen.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">5. Haftungsausschluss</h2>
-              <p className="text-gray-700">
-                Die Stadtverwaltung übernimmt keine Gewähr für die Vollständigkeit, Richtigkeit oder Aktualität der über CleanCity bereitgestellten Informationen. Eine Haftung für Schäden, die durch die Nutzung der Plattform entstehen, ist ausgeschlossen.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">6. Bearbeitungszeiten</h2>
-              <p className="text-gray-700">
-                Die Stadtverwaltung bemüht sich, gemeldete Probleme schnellstmöglich zu bearbeiten. Eine Garantie für bestimmte Bearbeitungszeiten kann jedoch nicht gegeben werden.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">7. Änderungen der Nutzungsbedingungen</h2>
-              <p className="text-gray-700">
-                Die Stadtverwaltung behält sich vor, diese Nutzungsbedingungen jederzeit zu ändern. Nutzer werden über wesentliche Änderungen informiert.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">8. Kontakt</h2>
-              <p className="text-gray-700">
-                Bei Fragen zu diesen Nutzungsbedingungen wenden Sie sich bitte an: info@musterstadt.de
-              </p>
-            </section>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-
-  // Main render logic
   return (
     <>
-      {/* Main Content */}
-      {(() => {
-        switch (currentView) {
-          case 'report':
-            return renderReportForm();
-          case 'confirmation':
-            return renderConfirmation();
-          case 'karte':
-            return isLoggedIn ? renderKarte() : renderHome();
-          case 'products':
-            return renderProducts();
-          case 'about':
-            return renderAbout();
-          case 'info':
-            return renderInfo();
-          case 'datenschutz':
-            return renderDatenschutz();
-          case 'impressum':
-            return renderImpressum();
-          case 'nutzungsbedingungen':
-            return renderNutzungsbedingungen();
-          default:
-            return renderHome();
-        }
-      })()}
-
-      {/* Authentication Modal */}
-      <AuthModal
-        isOpen={showAuthModal}
-        onClose={() => setShowAuthModal(false)}
-      />
-
-      {/* Notification Dialog */}
-      <NotificationDialog
-        isOpen={showNotificationDialog}
-        onClose={() => setShowNotificationDialog(false)}
-        onSubmit={handleNotificationRequest}
+      {content}
+      <AuthModal 
+        isOpen={isAuthModalOpen} 
+        onClose={() => setIsAuthModalOpen(false)} 
       />
     </>
   );
