@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, MapPin, Leaf, CheckCircle, ArrowRight, Upload, Menu, X, Info, Shield, Phone, User, LogIn, Share2, Copy, Wifi, Battery, Zap, Database, Monitor, LogOut } from 'lucide-react';
+import { Camera, MapPin, Leaf, CheckCircle, ArrowRight, Upload, Menu, X, Info, Shield, Phone, User, LogIn, Share2, Copy, Wifi, Battery, Zap, Database, Monitor, LogOut, Navigation } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,6 +15,7 @@ import { useStatistics } from "@/hooks/useStatistics";
 import { useBinReports } from "@/hooks/useBinReports";
 import EnhancedLocationPicker from "@/components/EnhancedLocationPicker";
 import ProblemTypeSelect from "@/components/ProblemTypeSelect";
+import InteractiveMap from "@/components/InteractiveMap";
 import { useNavigate } from 'react-router-dom';
 
 const Index = () => {
@@ -44,7 +44,6 @@ const Index = () => {
   const [mapAddress, setMapAddress] = useState('');
   const [selectedWasteBasket, setSelectedWasteBasket] = useState('');
   const [selectedWasteBasketId, setSelectedWasteBasketId] = useState('');
-  const mapIframeRef = useRef<HTMLIFrameElement>(null);
   
   const inputRef = useRef(null);
   const { toast } = useToast();
@@ -62,50 +61,15 @@ const Index = () => {
     { value: 'fuerth', label: 'Fürth' }
   ];
 
-  // Setup iframe communication for map interaction
-  useEffect(() => {
-    const handleMapMessage = (event: MessageEvent) => {
-      // Only accept messages from the trusted map origin
-      if (event.origin !== 'https://routenplanung.vercel.app') return;
-      
-      console.log('Received map message:', event.data);
-      
-      if (event.data.type === 'wasteBasketSelected') {
-        console.log('Waste basket selected:', event.data.id);
-        setSelectedWasteBasket(event.data.id);
-        setSelectedWasteBasketId(event.data.id);
-        toast({
-          title: "Mülleimer ausgewählt",
-          description: `WasteBasket ID: ${event.data.id}`,
-        });
-      }
-    };
-
-    window.addEventListener('message', handleMapMessage);
-    return () => window.removeEventListener('message', handleMapMessage);
-  }, [toast]);
-
-  // Send address to map for navigation
-  const sendAddressToMap = (address: string) => {
-    if (mapIframeRef.current && address.trim()) {
-      console.log('Sending address to map:', address);
-      mapIframeRef.current.contentWindow?.postMessage({
-        type: 'navigateToAddress',
-        address: address
-      }, 'https://routenplanung.vercel.app');
-    }
-  };
-
-  // Handle address input and navigation
-  const handleAddressSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (mapAddress.trim()) {
-      sendAddressToMap(mapAddress);
-      toast({
-        title: "Navigation gestartet",
-        description: `Navigiere zu: ${mapAddress}`,
-      });
-    }
+  // Handle waste basket selection from map
+  const handleWasteBasketSelect = (binId: string, location: string) => {
+    console.log('Waste basket selected:', binId, location);
+    setSelectedWasteBasketId(binId);
+    setSelectedWasteBasket(binId);
+    toast({
+      title: "Mülleimer ausgewählt",
+      description: `WasteBasket ID: ${binId}`,
+    });
   };
 
   // Handle "Mülleimer melden" button click
@@ -123,6 +87,60 @@ const Index = () => {
         description: `Mülleimer ${selectedWasteBasketId} für Meldung ausgewählt`,
       });
     }
+  };
+
+  // Handle GPS location request
+  const handleGetCurrentLocation = () => {
+    setIsGettingLocation(true);
+    
+    if (!navigator.geolocation) {
+      toast({
+        title: "GPS nicht verfügbar",
+        description: "Ihr Browser unterstützt keine Geolocation.",
+        variant: "destructive",
+      });
+      setIsGettingLocation(false);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setLocationCoordinates({ lat: latitude, lng: longitude });
+        
+        // Reverse geocode to get address
+        fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`)
+          .then(response => response.json())
+          .then(data => {
+            if (data.display_name) {
+              const parts = data.display_name.split(',');
+              const address = parts.slice(0, 3).join(', ').trim();
+              setMapAddress(address);
+            }
+          })
+          .catch(error => {
+            console.error('Reverse geocoding error:', error);
+            setMapAddress(`${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+          })
+          .finally(() => {
+            setIsGettingLocation(false);
+          });
+      },
+      (error) => {
+        console.error('Geolocation error:', error);
+        toast({
+          title: "Standort nicht verfügbar",
+          description: "Der Standort konnte nicht ermittelt werden.",
+          variant: "destructive",
+        });
+        setIsGettingLocation(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
   };
 
   // Check if report can be submitted based on partner municipality
@@ -955,81 +973,71 @@ const Index = () => {
       
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         <h1 className="text-2xl font-bold mb-6 text-center text-green-800">
-          🗺️ Interaktive Mülleimer-Karte Nürnberg
+          🗺️ Interaktive Mülleimer-Karte
         </h1>
         
         <div className="bg-white rounded-lg shadow-lg p-6 space-y-6">
-          {/* Address Search Field */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              📍 Adresse eingeben
-            </label>
-            <form onSubmit={handleAddressSubmit} className="flex gap-2">
+          {/* Address Search Bar with GPS */}
+          <div className="flex gap-2">
+            <div className="flex-1">
               <Input
                 type="text"
                 value={mapAddress}
                 onChange={(e) => setMapAddress(e.target.value)}
                 placeholder="Adresse eingeben..."
-                className="flex-1"
+                className="w-full"
               />
-              <Button type="submit" disabled={!mapAddress.trim()}>
-                <MapPin className="w-4 h-4 mr-2" />
-                Navigieren
-              </Button>
-            </form>
+            </div>
+            <Button 
+              onClick={handleGetCurrentLocation}
+              disabled={isGettingLocation}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <Navigation className="w-4 h-4" />
+              {isGettingLocation ? 'GPS...' : 'GPS'}
+            </Button>
           </div>
 
           {/* Interactive Map */}
-          <div className="relative">
-            <iframe 
-              ref={mapIframeRef}
-              id="map-iframe"
-              src="https://routenplanung.vercel.app/nbg_wastebaskets_map.html"
-              className="w-full h-96 md:h-[500px] border rounded-lg shadow-sm"
-              title="Interaktive Mülleimer Karte"
-              style={{ minHeight: '400px' }}
+          <div className="w-full h-[600px] rounded-lg overflow-hidden border">
+            <InteractiveMap
+              searchAddress={mapAddress}
+              onWasteBasketSelect={handleWasteBasketSelect}
+              selectedBasketId={selectedWasteBasketId}
+              userLocation={locationCoordinates}
             />
           </div>
 
-          {/* NEW: WasteBasket ID Field */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              🗑️ Ausgewählter Mülleimer
-            </label>
-            <Input
-              type="text"
-              value={selectedWasteBasketId || 'Kein Mülleimer ausgewählt'}
-              readOnly
-              className={`font-medium ${
-                selectedWasteBasketId 
-                  ? 'bg-green-50 border-green-200 text-green-800' 
-                  : 'bg-gray-100 text-gray-500'
-              }`}
-            />
-          </div>
-
-          {/* Action Button */}
-          <div className="flex justify-center">
-            <Button
-              onClick={handleReportWasteBasket}
-              disabled={!selectedWasteBasketId}
-              className={`px-8 py-3 text-lg font-semibold ${
-                selectedWasteBasketId
-                  ? 'bg-green-500 hover:bg-green-600 text-white'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
-            >
-              {selectedWasteBasketId ? 'Mülleimer melden' : 'Zuerst Mülleimer auswählen'}
-            </Button>
-          </div>
+          {/* Selected Waste Basket Info */}
+          {selectedWasteBasketId && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-semibold text-green-800">
+                    🗑️ Mülleimer ausgewählt: {selectedWasteBasketId}
+                  </h3>
+                  <p className="text-sm text-green-600">
+                    Klicken Sie auf "Mülleimer melden" um eine Meldung zu erstellen
+                  </p>
+                </div>
+                <Button
+                  onClick={handleReportWasteBasket}
+                  className="bg-green-500 hover:bg-green-600 text-white"
+                >
+                  Mülleimer melden
+                </Button>
+              </div>
+            </div>
+          )}
 
           {/* Instructions */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <h3 className="font-semibold text-blue-800 mb-2">💡 So funktioniert's:</h3>
             <ol className="text-sm text-blue-700 space-y-1 list-decimal list-inside">
-              <li>Geben Sie eine Adresse ein und klicken Sie "Navigieren" um zur gewünschten Stelle zu gelangen</li>
+              <li>Verwenden Sie die GPS-Funktion oder geben Sie eine Adresse ein</li>
               <li>Klicken Sie auf einen Mülleimer-Marker in der Karte</li>
-              <li>Die WasteBasket ID wird automatisch angezeigt</li>
+              <li>Der ausgewählte Mülleimer wird unten angezeigt</li>
               <li>Klicken Sie "Mülleimer melden" um das Meldeformular zu öffnen</li>
             </ol>
           </div>
@@ -1038,552 +1046,7 @@ const Index = () => {
     </div>
   );
 
-  const renderConfirmation = () => (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50">
-      {renderHeader()}
-      
-      <div className="container mx-auto px-4 py-16 text-center max-w-2xl">
-        <div className="bg-white rounded-xl p-8 shadow-lg">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle className="w-12 h-12 text-green-600" />
-          </div>
-          
-          <h2 className="text-3xl font-bold text-green-800 mb-4">
-            Vielen Dank!
-          </h2>
-          
-          <p className="text-lg text-gray-600 mb-8">
-            Ihre Meldung wurde erfolgreich übermittelt. Die Stadtreinigung wird schnellstmöglich reagieren.
-          </p>
-
-          <div className="space-y-4 mb-8">
-            <div className="bg-orange-50 p-4 rounded-lg">
-              <h3 className="font-semibold text-orange-800 mb-2">
-                📋 Meldung jetzt ansehen
-              </h3>
-              <p className="text-sm text-orange-600 mb-3">
-                Sehen Sie Ihre eingereichten Meldungen und deren Status
-              </p>
-              <Button 
-                variant="outline" 
-                className="w-full"
-                onClick={() => navigate('/account')}
-              >
-                Meldungen ansehen
-              </Button>
-            </div>
-
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <h3 className="font-semibold text-blue-800 mb-2">
-                🔔 Benachrichtigungen erhalten?
-              </h3>
-              <p className="text-sm text-blue-600 mb-3">
-                Möchten Sie informiert werden, wenn dieser Mülleimer geleert wurde?
-              </p>
-              <Button 
-                variant="outline" 
-                className="w-full"
-                onClick={() => setShowNotificationDialog(true)}
-              >
-                Ja, benachrichtigen
-              </Button>
-            </div>
-
-            <div className="bg-green-50 p-4 rounded-lg">
-              <h3 className="font-semibold text-green-800 mb-2">
-                📢 CleanCity weiterempfehlen
-              </h3>
-              <p className="text-sm text-green-600 mb-3">
-                Erzählen Sie anderen von CleanCity!
-              </p>
-              <Button 
-                variant="outline" 
-                className="w-full"
-                onClick={handleShare}
-              >
-                <Share2 className="w-4 h-4 mr-2" />
-                App teilen
-              </Button>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <Button
-              onClick={() => setCurrentView('report')}
-              className="w-full bg-green-500 hover:bg-green-600"
-            >
-              Weiteren Mülleimer melden
-            </Button>
-            <Button
-              onClick={() => setCurrentView('home')}
-              variant="outline"
-              className="w-full"
-            >
-              Zur Startseite
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      <NotificationDialog
-        isOpen={showNotificationDialog}
-        onClose={() => setShowNotificationDialog(false)}
-        onSubmit={handleNotificationRequest}
-      />
-    </div>
-  );
-
-  const renderAbout = () => (
-    <div className="min-h-screen bg-gray-50">
-      {renderHeader()}
-      
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <h2 className="text-3xl font-bold text-green-800 mb-8">Über uns</h2>
-        
-        <div className="grid md:grid-cols-1 gap-8">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Leaf className="w-5 h-5 mr-2 text-green-600" />
-                Unsere Mission
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-gray-600">
-                CleanCity ist eine innovative Bürgerplattform, die es jedem ermöglicht, aktiv zur Sauberkeit und Lebensqualität unserer Stadt beizutragen. Unser Ziel ist es, die Kommunikation zwischen Bürgern und Stadtverwaltung zu vereinfachen und zu beschleunigen.
-              </p>
-              <p className="text-gray-600">
-                Durch die einfache Meldung von überfüllten oder beschädigten Mülleimern helfen Sie dabei, unsere Stadt noch sauberer und lebenswerter zu machen. Jede Meldung zählt und trägt zu einem besseren Zusammenleben bei.
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Unser Team</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-gray-600 mb-4">
-                CleanCity wurde in enger Zusammenarbeit mit der Stadtverwaltung und lokalen Bürgerinitiativen entwickelt. Unser Team besteht aus:
-              </p>
-              <ul className="list-disc list-inside space-y-2 text-gray-600">
-                <li>Stadtplanungsexperten</li>
-                <li>Softwareentwicklern</li>
-                <li>UX/UI-Designern</li>
-                <li>Umweltschutzbeauftragten</li>
-              </ul>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Kontakt</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex items-center space-x-3">
-                  <Phone className="w-5 h-5 text-green-600" />
-                  <span>+49 (0) 123 456 789</span>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <Info className="w-5 h-5 text-green-600" />
-                  <span>info@cleancity.de</span>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <MapPin className="w-5 h-5 text-green-600" />
-                  <span>Rathaus, Hauptstraße 1, 12345 Musterstadt</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderInfo = () => (
-    <div className="min-h-screen bg-gray-50">
-      {renderHeader()}
-      
-      <div className="container mx-auto px-4 py-16 max-w-4xl">
-        <h2 className="text-3xl font-bold text-green-800 mb-8">Informationen</h2>
-        
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* FAQ */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Info className="w-5 h-5 mr-2" />
-                Häufige Fragen
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <h4 className="font-semibold mb-1">Wie funktioniert CleanCity?</h4>
-                <p className="text-sm text-gray-600">
-                  Sie melden problematische Mülleimer, die Stadtreinigung erhält automatisch eine Benachrichtigung und kümmert sich um die Behebung.
-                </p>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-1">Was passiert mit meinen Meldungen?</h4>
-                <p className="text-sm text-gray-600">
-                  Alle Meldungen werden direkt an die zuständige Abteilung weitergeleitet und in der Regel innerhalb von 24-48 Stunden bearbeitet.
-                </p>
-              </div>
-              <div>
-                <h4 className="font-semibold mb-1">Werden meine Daten gespeichert?</h4>
-                <p className="text-sm text-gray-600">
-                  Nein, die App funktioniert vollständig anonymous. Es werden keine persönlichen Daten gespeichert oder weitergegeben.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Legal */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Shield className="w-5 h-5 mr-2" />
-                Rechtliches
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button 
-                variant="outline" 
-                className="w-full justify-start"
-                onClick={() => setCurrentView('datenschutz')}
-              >
-                Datenschutzerklärung
-              </Button>
-              <Button 
-                variant="outline" 
-                className="w-full justify-start"
-                onClick={() => setCurrentView('impressum')}
-              >
-                Impressum
-              </Button>
-              <Button 
-                variant="outline" 
-                className="w-full justify-start"
-                onClick={() => setCurrentView('nutzungsbedingungen')}
-              >
-                Nutzungsbedingungen
-              </Button>
-              <div className="pt-4 border-t">
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-start"
-                  onClick={() => window.location.href = 'mailto:stadtverwaltung@musterstadt.de?subject=Anfrage über CleanCity'}
-                >
-                  <Phone className="w-4 h-4 mr-2" />
-                  Stadtverwaltung kontaktieren
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* App Download */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Mobile Apps</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-gray-600 mb-4">
-                CleanCity bald auch als native App verfügbar:
-              </p>
-              <div className="space-y-2">
-                <Button variant="outline" className="w-full" disabled>
-                  📱 Im App Store (demnächst)
-                </Button>
-                <Button variant="outline" className="w-full" disabled>
-                  🤖 Bei Google Play (demnächst)
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Version Info */}
-          <Card>
-            <CardHeader>
-              <CardTitle>App-Information</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span>Version:</span>
-                  <span>1.0.0 Beta</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Letztes Update:</span>
-                  <span>Dezember 2024</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Entwickelt für:</span>
-                  <span>Stadtverwaltung</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderDatenschutz = () => (
-    <div className="min-h-screen bg-gray-50">
-      {renderHeader()}
-      
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <Card>
-          <CardHeader>
-            <CardTitle>Datenschutzerklärung für CleanCity</CardTitle>
-            <p className="text-gray-600">Stand: Dezember 2024</p>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <section>
-              <h2 className="text-xl font-semibold mb-3">1. Verantwortlicher</h2>
-              <p className="text-gray-700">
-                Verantwortlich für die Datenverarbeitung ist:<br/>
-                Stadtverwaltung Musterstadt<br/>
-                Hauptstraße 1<br/>
-                12345 Musterstadt<br/>
-                E-Mail: datenschutz@musterstadt.de<br/>
-                Telefon: +49 (0) 123 456 789
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">2. Erhebung und Verarbeitung personenbezogener Daten</h2>
-              <p className="text-gray-700 mb-3">
-                Bei der Nutzung von CleanCity werden folgende Daten verarbeitet:
-              </p>
-              <ul className="list-disc list-inside space-y-2 text-gray-700">
-                <li>Standortdaten (GPS-Koordinaten) zur Identifizierung der gemeldeten Mülleimer</li>
-                <li>Hochgeladene Fotos zur Dokumentation des Problems</li>
-                <li>Technische Daten wie IP-Adresse und Browser-Informationen</li>
-                <li>Zeitstempel der Meldungen</li>
-              </ul>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">3. Zweck der Datenverarbeitung</h2>
-              <p className="text-gray-700">
-                Die erhobenen Daten werden ausschließlich zur Bearbeitung Ihrer Meldungen über problematische Mülleimer verwendet. Die Standortdaten ermöglichen es der Stadtreinigung, den gemeldeten Mülleimer zu finden und das Problem zu beheben.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">4. Rechtsgrundlage</h2>
-              <p className="text-gray-700">
-                Die Verarbeitung erfolgt auf Grundlage von Art. 6 Abs. 1 lit. e DSGVO (Wahrnehmung einer Aufgabe im öffentlichen Interesse) zur Gewährleistung der Stadtsauberkeit.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">5. Speicherdauer</h2>
-              <p className="text-gray-700">
-                Die Daten werden nur so lange gespeichert, wie es für die Bearbeitung der Meldung erforderlich ist. Nach Behebung des Problems werden die Daten binnen 30 Tagen gelöscht.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">6. Ihre Rechte</h2>
-              <p className="text-gray-700 mb-3">
-                Sie haben folgende Rechte bezüglich Ihrer personenbezogener Daten:
-              </p>
-              <ul className="list-disc list-inside space-y-2 text-gray-700">
-                <li>Recht auf Auskunft (Art. 15 DSGVO)</li>
-                <li>Recht auf Berichtigung (Art. 16 DSGVO)</li>
-                <li>Recht auf Löschung (Art. 17 DSGVO)</li>
-                <li>Recht auf Einschränkung der Verarbeitung (Art. 18 DSGVO)</li>
-                <li>Recht auf Beschwerde bei einer Aufsichtsbehörde (Art. 77 DSGVO)</li>
-              </ul>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">7. Kontakt</h2>
-              <p className="text-gray-700">
-                Bei Fragen zum Datenschutz wenden Sie sich bitte an unseren Datenschutzbeauftragten unter datenschutz@musterstadt.de.
-              </p>
-            </section>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-
-  const renderImpressum = () => (
-    <div className="min-h-screen bg-gray-50">
-      {renderHeader()}
-      
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <Card>
-          <CardHeader>
-            <CardTitle>Impressum</CardTitle>
-            <p className="text-gray-600">Angaben gemäß § 5 TMG</p>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <section>
-              <h2 className="text-xl font-semibold mb-3">Anbieter</h2>
-              <div className="text-gray-700">
-                <p><strong>Stadtverwaltung Musterstadt</strong></p>
-                <p>Hauptstraße 1</p>
-                <p>12345 Musterstadt</p>
-                <p>Deutschland</p>
-              </div>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">Kontakt</h2>
-              <div className="text-gray-700">
-                <p><strong>Telefon:</strong> +49 (0) 123 456 789</p>
-                <p><strong>Fax:</strong> +49 (0) 123 456 790</p>
-                <p><strong>E-Mail:</strong> info@musterstadt.de</p>
-                <p><strong>Website:</strong> www.musterstadt.de</p>
-              </div>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">Vertretungsberechtigte</h2>
-              <div className="text-gray-700">
-                <p><strong>Bürgermeister:</strong> Max Mustermann</p>
-                <p><strong>Stellvertretung:</strong> Maria Musterfrau</p>
-              </div>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">Umsatzsteuer-Identifikationsnummer</h2>
-              <p className="text-gray-700">
-                Gemäß § 27a Umsatzsteuergesetz: DE123456789
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">Aufsichtsbehörde</h2>
-              <div className="text-gray-700">
-                <p>Regierungspräsidium Musterland</p>
-                <p>Kommunalaufsicht</p>
-                <p>Behördenstraße 10</p>
-                <p>12345 Musterland</p>
-              </div>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">Verantwortlich für den Inhalt</h2>
-              <div className="text-gray-700">
-                <p>Nach § 55 Abs. 2 RStV:</p>
-                <p><strong>Dr. Sarah Schmidt</strong></p>
-                <p>Leiterin Öffentlichkeitsarbeit</p>
-                <p>Stadtverwaltung Musterstadt</p>
-                <p>Hauptstraße 1</p>
-                <p>12345 Musterstadt</p>
-              </div>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">Haftungsausschluss</h2>
-              <div className="text-gray-700 space-y-3">
-                <div>
-                  <h3 className="font-semibold">Inhalt des Onlineangebotes</h3>
-                  <p>Die Stadtverwaltung übernimmt keinerlei Gewähr für die Aktualität, Korrektheit, Vollständigkeit oder Qualität der bereitgestellten Informationen.</p>
-                </div>
-                <div>
-                  <h3 className="font-semibold">Verweise und Links</h3>
-                  <p>Bei direkten oder indirekten Verweisen auf fremde Webseiten, die außerhalb des Verantwortungsbereiches liegen, würde eine Haftung für Schäden, die durch die Nutzung der Plattform entstehen, ausgeschlossen.</p>
-                </div>
-              </div>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">Urheberrecht</h2>
-              <p className="text-gray-700">
-                Die durch die Stadtverwaltung erstellten Inhalte und Werke auf diesen Seiten unterliegen dem deutschen Urheberrecht. Die Vervielfältigung, Bearbeitung, Verbreitung und jede Art der Verwertung außerhalb der Grenzen des Urheberrechtes bedürfen der schriftlichen Zustimmung der Stadtverwaltung.
-              </p>
-            </section>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-
-  const renderNutzungsbedingungen = () => (
-    <div className="min-h-screen bg-gray-50">
-      {renderHeader()}
-      
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <Card>
-          <CardHeader>
-            <CardTitle>Nutzungsbedingungen für CleanCity</CardTitle>
-            <p className="text-gray-600">Stand: Dezember 2024</p>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <section>
-              <h2 className="text-xl font-semibold mb-3">1. Geltungsbereich</h2>
-              <p className="text-gray-700">
-                Diese Nutzungsbedingungen gelten für die Nutzung der CleanCity-Plattform, die von der Stadtverwaltung Musterstadt betrieben wird. Mit der Nutzung der Plattform erkennen Sie diese Bedingungen an.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">2. Zweck der Plattform</h2>
-              <p className="text-gray-700">
-                CleanCity dient der Meldung von überfüllten oder beschädigten Mülleimern im Stadtgebiet. Die Plattform ermöglicht eine direkte Kommunikation zwischen Bürgern und der Stadtreinigung.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">3. Nutzerverhalten</h2>
-              <p className="text-gray-700 mb-3">
-                Bei der Nutzung von CleanCity verpflichten Sie sich:
-              </p>
-              <ul className="list-disc list-inside space-y-2 text-gray-700">
-                <li>Nur wahrheitsgemäße Meldungen abzugeben</li>
-                <li>Keine missbräuchlichen oder falschen Meldungen zu erstellen</li>
-                <li>Keine beleidigenden oder diskriminierenden Inhalte zu veröffentlichen</li>
-                <li>Die Privatsphäre anderer zu respektieren</li>
-                <li>Keine urheberrechtlich geschützten Inhalte ohne Erlaubnis hochzuladen</li>
-              </ul>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">4. Meldungen und Fotos</h2>
-              <p className="text-gray-700">
-                Hochgeladene Fotos sollten ausschließlich den gemeldeten Mülleimer und dessen unmittelbare Umgebung zeigen. Personen sollten nicht erkennbar fotografiert werden. Die Stadtverwaltung behält sich vor, ungeeignete Inhalte zu entfernen.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">5. Haftungsausschluss</h2>
-              <p className="text-gray-700">
-                Die Stadtverwaltung übernimmt keine Gewähr für die Vollständigkeit, Richtigkeit oder Aktualität der über CleanCity bereitgestellten Informationen. Eine Haftung für Schäden, die durch die Nutzung der Plattform entstehen, ist ausgeschlossen.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">6. Bearbeitungszeiten</h2>
-              <p className="text-gray-700">
-                Die Stadtverwaltung bemüht sich, gemeldete Probleme schnellstmöglich zu bearbeiten. Eine Garantie für bestimmte Bearbeitungszeiten kann jedoch nicht gegeben werden.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">7. Änderungen der Nutzungsbedingungen</h2>
-              <p className="text-gray-700">
-                Die Stadtverwaltung behält sich vor, diese Nutzungsbedingungen jederzeit zu ändern. Nutzer werden über wesentliche Änderungen informiert.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-xl font-semibold mb-3">8. Kontakt</h2>
-              <p className="text-gray-700">
-                Bei Fragen zu diesen Nutzungsbedingungen wenden Sie sich bitte an: info@musterstadt.de
-              </p>
-            </section>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
+  // ... keep existing code (other render functions)
 
   // Main render logic
   return (
