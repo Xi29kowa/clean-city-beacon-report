@@ -253,7 +253,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({ onWasteBinSelect, cente
         <div className="relative">
           <iframe 
             ref={mapIframeRef}
-            src="https://routenplanung.vercel.app/nbg_wastebaskets_map.html"
+            src="https://muelleimer-map.vercel.app/nbg_wastebaskets_with_ID_map.html"
             className="w-full h-96 border-0 rounded-t-lg"
             title="Interaktive Mülleimer Karte"
             style={{ minHeight: '384px' }}
