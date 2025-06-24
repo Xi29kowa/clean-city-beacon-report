@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, MapPin, Leaf, CheckCircle, ArrowRight, Upload, Menu, X, Info, Shield, Phone, User, LogIn, Share2, Copy, Wifi, Battery, Zap, Database, Monitor, LogOut, Navigation, Trash2 } from 'lucide-react';
+import { Camera, MapPin, Leaf, CheckCircle, ArrowRight, Upload, Menu, X, Info, Shield, Phone, User, LogIn, Share2, Copy, Wifi, Battery, Zap, Database, Monitor, LogOut, Navigation, Trash2, Bin } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -143,14 +143,15 @@ const Index = () => {
     );
   };
 
-  // Check if report can be submitted based on partner municipality
+  // Check if report can be submitted - updated to allow submission without location requirement from AddressInput
   useEffect(() => {
-    const hasLocation = formData.location?.trim();
     const hasIssueType = formData.issueType;
     const hasPartnerMunicipality = formData.partnerMunicipality;
+    // Allow submission if we have either a manual location OR a wasteBinId (which provides location)
+    const hasLocationInfo = formData.location?.trim() || formData.wasteBinId?.trim();
     
-    setCanSubmitReport(Boolean(hasLocation && hasIssueType && hasPartnerMunicipality));
-  }, [formData.location, formData.issueType, formData.partnerMunicipality]);
+    setCanSubmitReport(Boolean(hasLocationInfo && hasIssueType && hasPartnerMunicipality));
+  }, [formData.location, formData.issueType, formData.partnerMunicipality, formData.wasteBinId]);
 
   // Animation function for counter
   const animateCounter = (start, end, duration = 1000) => {
@@ -243,10 +244,12 @@ const Index = () => {
       wasteBinId: formData.wasteBinId
     });
     
-    if (!formData.location?.trim()) {
+    // Updated validation - allow submission if we have either location OR wasteBinId
+    const hasLocationInfo = formData.location?.trim() || formData.wasteBinId?.trim();
+    if (!hasLocationInfo) {
       toast({
         title: "Fehlende Angaben",
-        description: "Bitte geben Sie einen Standort an.",
+        description: "Bitte geben Sie einen Standort an oder wählen Sie einen Mülleimer aus der Karte.",
         variant: "destructive",
       });
       return;
@@ -272,13 +275,16 @@ const Index = () => {
     
     console.log('🗑️ CRITICAL - PASSING wasteBinId to submitReport:', formData.wasteBinId);
     
+    // Use wasteBinId location if no manual location is provided
+    const locationToSubmit = formData.location?.trim() || `Mülleimer ${formData.wasteBinId}`;
+    
     const reportId = await submitReport({
-      location: formData.location.trim(),
+      location: locationToSubmit,
       issue_type: formData.issueType,
       comment: formData.comment?.trim() || null,
       photo: formData.photo,
       partner_municipality: formData.partnerMunicipality || null,
-      waste_bin_id: formData.wasteBinId // CRITICAL: Pass the waste_bin_id here!
+      waste_bin_id: formData.wasteBinId
     });
 
     if (reportId) {
@@ -693,7 +699,7 @@ const Index = () => {
                       </p>
                       <p className="text-sm text-yellow-700 mt-1">
                         Derzeit unterstützen wir nur Meldungen in Nürnberg, Erlangen und Fürth. 
-                        Bitte wählen Sie einen Standort in einer dieser Städte aus.
+                        Bitte wählen Sie einen Standort in einer dieser Städte aus oder wählen Sie einen Mülleimer über die Karte.
                       </p>
                     </div>
                   </div>
@@ -756,7 +762,7 @@ const Index = () => {
           <div className="grid md:grid-cols-3 gap-8">
             <div className="text-center">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Trash2 className="w-8 h-8 text-green-600" />
+                <Bin className="w-8 h-8 text-green-600" />
               </div>
               <h4 className="font-semibold mb-2">1. Mülleimer melden</h4>
               <p className="text-gray-600">Klicke auf „Mülleimer melden", um den Vorgang zu starten.</p>
