@@ -1002,7 +1002,7 @@ const Index = () => {
           {/* Interactive Map */}
           <div className="w-full h-[600px] rounded-lg overflow-hidden border">
             <InteractiveMap
-              searchAddress={mapAddress}
+              center={locationCoordinates}
               onWasteBasketSelect={handleWasteBasketSelect}
               selectedBasketId={selectedWasteBasketId}
               userLocation={locationCoordinates}
@@ -1046,7 +1046,464 @@ const Index = () => {
     </div>
   );
 
-  // ... keep existing code (other render functions)
+  const renderAbout = () => (
+    <div className="min-h-screen bg-gray-50">
+      {renderHeader()}
+      
+      <div className="container mx-auto px-4 py-12 max-w-4xl">
+        <h1 className="text-3xl font-bold text-center text-green-800 mb-8">Über uns</h1>
+        
+        <div className="space-y-8">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-2xl text-green-700">Unsere Mission</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-600 text-lg leading-relaxed">
+                CleanCity wurde mit dem Ziel gegründet, Städte sauberer und lebenswerter zu machen. 
+                Durch innovative Technologie und Bürgerbeteiligung schaffen wir eine effiziente 
+                Verbindung zwischen Bürgern und städtischen Dienstleistungen.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-2xl text-green-700">Was wir tun</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="font-semibold text-lg mb-3 text-green-600">🔧 Innovative Lösungen</h3>
+                  <p className="text-gray-600">
+                    Wir entwickeln smarte Technologien zur Optimierung der städtischen Müllentsorgung.
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-3 text-green-600">👥 Bürgerbeteiligung</h3>
+                  <p className="text-gray-600">
+                    Jeder Bürger kann aktiv zur Sauberkeit seiner Stadt beitragen.
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-3 text-green-600">🌱 Nachhaltigkeit</h3>
+                  <p className="text-gray-600">
+                    Unsere Lösungen fördern eine nachhaltige und umweltfreundliche Stadtentwicklung.
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-3 text-green-600">📊 Datenbasiert</h3>
+                  <p className="text-gray-600">
+                    Durch intelligente Datenanalyse optimieren wir städtische Prozesse kontinuierlich.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-2xl text-green-700">Unser Team</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-gray-600 text-lg leading-relaxed">
+                Unser interdisziplinäres Team besteht aus Experten in den Bereichen 
+                Stadtplanung, Softwareentwicklung, IoT-Technologie und Umweltwissenschaften. 
+                Gemeinsam arbeiten wir daran, die Vision einer sauberen und intelligenten 
+                Stadt zu verwirklichen.
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-2xl text-green-700">Kontakt</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                    <Phone className="w-5 h-5 text-green-600" />
+                  </div>
+                  <span className="text-gray-700">+49 (0) 911 123 456</span>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                    <MapPin className="w-5 h-5 text-green-600" />
+                  </div>
+                  <span className="text-gray-700">Musterstraße 123, 90402 Nürnberg</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderInfo = () => (
+    <div className="min-h-screen bg-gray-50">
+      {renderHeader()}
+      
+      <div className="container mx-auto px-4 py-12 max-w-4xl">
+        <h1 className="text-3xl font-bold text-center text-green-800 mb-8">Informationen</h1>
+        
+        <div className="space-y-8">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-2xl text-green-700">Häufig gestellte Fragen</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                <div>
+                  <h3 className="font-semibold text-lg mb-2 text-green-600">Wie funktioniert die Meldung?</h3>
+                  <p className="text-gray-600">
+                    Einfach Standort angeben, Problem auswählen, optional ein Foto hinzufügen und absenden. 
+                    Die Meldung wird automatisch an die zuständige Stadtreinigung weitergeleitet.
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-2 text-green-600">Welche Städte werden unterstützt?</h3>
+                  <p className="text-gray-600">
+                    Aktuell unterstützen wir Nürnberg, Erlangen und Fürth. 
+                    Die Erweiterung auf weitere Städte ist geplant.
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-2 text-green-600">Wie schnell wird meine Meldung bearbeitet?</h3>
+                  <p className="text-gray-600">
+                    Die Bearbeitung erfolgt in der Regel innerhalb von 24-48 Stunden, 
+                    je nach Priorität und Arbeitsaufkommen der Stadtreinigung.
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-2 text-green-600">Kostet die Nutzung etwas?</h3>
+                  <p className="text-gray-600">
+                    Nein, CleanCity ist für alle Bürger kostenlos nutzbar. 
+                    Es handelt sich um einen öffentlichen Service zur Verbesserung der Stadtqualität.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-2xl text-green-700">Technische Informationen</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <h3 className="font-semibold text-lg mb-2 text-green-600">Datenschutz</h3>
+                  <p className="text-gray-600">
+                    Alle Daten werden verschlüsselt übertragen und nur für die Bearbeitung 
+                    der Meldungen verwendet. Weitere Details finden Sie in unserer Datenschutzerklärung.
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-2 text-green-600">GPS-Genauigkeit</h3>
+                  <p className="text-gray-600">
+                    Für optimale Ergebnisse aktivieren Sie die GPS-Funktion Ihres Geräts. 
+                    Die Standortdaten helfen bei der präzisen Zuordnung der Meldungen.
+                  </p>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-lg mb-2 text-green-600">Browser-Kompatibilität</h3>
+                  <p className="text-gray-600">
+                    CleanCity funktioniert mit allen modernen Browsern und ist für 
+                    Desktop und mobile Geräte optimiert.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-2xl text-green-700">Rechtliche Hinweise</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setCurrentView('datenschutz')}
+                  className="w-full justify-start text-green-600 border-green-200 hover:bg-green-50"
+                >
+                  <Shield className="w-4 h-4 mr-2" />
+                  Datenschutzerklärung
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setCurrentView('impressum')}
+                  className="w-full justify-start text-green-600 border-green-200 hover:bg-green-50"
+                >
+                  <Info className="w-4 h-4 mr-2" />
+                  Impressum
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setCurrentView('nutzungsbedingungen')}
+                  className="w-full justify-start text-green-600 border-green-200 hover:bg-green-50"
+                >
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  Nutzungsbedingungen
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderConfirmation = () => (
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50">
+      {renderHeader()}
+      
+      <div className="container mx-auto px-4 py-8 max-w-2xl">
+        <Card className="bg-white shadow-lg">
+          <CardHeader className="text-center">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <CheckCircle className="w-8 h-8 text-green-600" />
+            </div>
+            <CardTitle className="text-2xl text-green-800">
+              Meldung erfolgreich übermittelt!
+            </CardTitle>
+            <p className="text-gray-600 mt-2">
+              Vielen Dank für Ihren Beitrag zu einer sauberen Stadt.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <h3 className="font-semibold text-green-800 mb-2">Was passiert als Nächstes?</h3>
+              <ul className="text-sm text-green-700 space-y-1">
+                <li>• Ihre Meldung wurde an die zuständige Stadtreinigung weitergeleitet</li>
+                <li>• Die Bearbeitung erfolgt normalerweise innerhalb von 24-48 Stunden</li>
+                <li>• Sie können den Status in Ihrem Benutzerkonto verfolgen</li>
+              </ul>
+            </div>
+            
+            {currentReportId && (
+              <div className="text-center">
+                <p className="text-sm text-gray-500 mb-3">
+                  Meldungs-ID: {currentReportId}
+                </p>
+                <Button
+                  onClick={() => setShowNotificationDialog(true)}
+                  variant="outline"
+                  className="text-green-600 border-green-200 hover:bg-green-50"
+                >
+                  Benachrichtigung bei Bearbeitung erhalten
+                </Button>
+              </div>
+            )}
+            
+            <div className="flex gap-3 pt-4">
+              <Button 
+                onClick={() => setCurrentView('report')}
+                className="flex-1 bg-green-500 hover:bg-green-600 text-white"
+              >
+                Weitere Meldung
+              </Button>
+              <Button 
+                onClick={() => setCurrentView('home')}
+                variant="outline"
+                className="flex-1"
+              >
+                Zur Startseite
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+
+  const renderDatenschutz = () => (
+    <div className="min-h-screen bg-gray-50">
+      {renderHeader()}
+      
+      <div className="container mx-auto px-4 py-12 max-w-4xl">
+        <h1 className="text-3xl font-bold text-center text-green-800 mb-8">Datenschutzerklärung</h1>
+        
+        <Card>
+          <CardContent className="p-8 space-y-6">
+            <div>
+              <h2 className="text-2xl font-semibold text-green-700 mb-4">1. Datenschutz auf einen Blick</h2>
+              <p className="text-gray-600 leading-relaxed">
+                Diese Datenschutzerklärung klärt Sie über die Art, den Umfang und Zweck der Verarbeitung 
+                von personenbezogenen Daten innerhalb unseres Onlineangebotes und der mit ihm verbundenen 
+                Webseiten, Funktionen und Inhalte auf.
+              </p>
+            </div>
+
+            <div>
+              <h2 className="text-2xl font-semibold text-green-700 mb-4">2. Erhebung und Speicherung personenbezogener Daten</h2>
+              <p className="text-gray-600 leading-relaxed mb-4">
+                Wir erheben und verwenden Ihre personenbezogenen Daten nur, soweit dies zur Erbringung 
+                einer funktionsfähigen Website sowie unserer Inhalte und Leistungen erforderlich ist.
+              </p>
+              <ul className="list-disc list-inside text-gray-600 space-y-2">
+                <li>Standortdaten für die präzise Zuordnung von Meldungen</li>
+                <li>Kontaktdaten für die Bearbeitung Ihrer Anfragen</li>
+                <li>Technische Daten für die Bereitstellung unserer Services</li>
+              </ul>
+            </div>
+
+            <div>
+              <h2 className="text-2xl font-semibold text-green-700 mb-4">3. Verwendung von Cookies</h2>
+              <p className="text-gray-600 leading-relaxed">
+                Unsere Website verwendet Cookies, um die Benutzerfreundlichkeit zu verbessern. 
+                Sie können Ihren Browser so einstellen, dass Sie über das Setzen von Cookies informiert werden.
+              </p>
+            </div>
+
+            <div>
+              <h2 className="text-2xl font-semibold text-green-700 mb-4">4. Ihre Rechte</h2>
+              <p className="text-gray-600 leading-relaxed">
+                Sie haben das Recht auf Auskunft, Berichtigung, Löschung und Einschränkung der Verarbeitung 
+                Ihrer personenbezogenen Daten sowie ein Widerspruchsrecht gegen die Verarbeitung.
+              </p>
+            </div>
+
+            <div className="border-t pt-6">
+              <p className="text-sm text-gray-500">
+                Stand: Juni 2024 | Bei Fragen zum Datenschutz kontaktieren Sie uns unter: 
+                <a href="mailto:datenschutz@cleancity.de" className="text-green-600 hover:underline">
+                  datenschutz@cleancity.de
+                </a>
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+
+  const renderImpressum = () => (
+    <div className="min-h-screen bg-gray-50">
+      {renderHeader()}
+      
+      <div className="container mx-auto px-4 py-12 max-w-4xl">
+        <h1 className="text-3xl font-bold text-center text-green-800 mb-8">Impressum</h1>
+        
+        <Card>
+          <CardContent className="p-8 space-y-6">
+            <div>
+              <h2 className="text-2xl font-semibold text-green-700 mb-4">Angaben gemäß § 5 TMG</h2>
+              <div className="text-gray-600 space-y-2">
+                <p><strong>CleanCity GmbH</strong></p>
+                <p>Musterstraße 123</p>
+                <p>90402 Nürnberg</p>
+                <p>Deutschland</p>
+              </div>
+            </div>
+
+            <div>
+              <h2 className="text-2xl font-semibold text-green-700 mb-4">Kontakt</h2>
+              <div className="text-gray-600 space-y-2">
+                <p>Telefon: +49 (0) 911 123 456</p>
+                <p>E-Mail: info@cleancity.de</p>
+              </div>
+            </div>
+
+            <div>
+              <h2 className="text-2xl font-semibold text-green-700 mb-4">Registerangaben</h2>
+              <div className="text-gray-600 space-y-2">
+                <p>Registergericht: Amtsgericht Nürnberg</p>
+                <p>Registernummer: HRB 12345</p>
+              </div>
+            </div>
+
+            <div>
+              <h2 className="text-2xl font-semibold text-green-700 mb-4">Geschäftsführung</h2>
+              <div className="text-gray-600">
+                <p>Max Mustermann</p>
+              </div>
+            </div>
+
+            <div>
+              <h2 className="text-2xl font-semibold text-green-700 mb-4">Umsatzsteuer-ID</h2>
+              <div className="text-gray-600">
+                <p>Umsatzsteuer-Identifikationsnummer gemäß § 27 a Umsatzsteuergesetz: DE123456789</p>
+              </div>
+            </div>
+
+            <div>
+              <h2 className="text-2xl font-semibold text-green-700 mb-4">Haftungsausschluss</h2>
+              <p className="text-gray-600 leading-relaxed">
+                Die Inhalte unserer Seiten wurden mit größter Sorgfalt erstellt. Für die Richtigkeit, 
+                Vollständigkeit und Aktualität der Inhalte können wir jedoch keine Gewähr übernehmen.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+
+  const renderNutzungsbedingungen = () => (
+    <div className="min-h-screen bg-gray-50">
+      {renderHeader()}
+      
+      <div className="container mx-auto px-4 py-12 max-w-4xl">
+        <h1 className="text-3xl font-bold text-center text-green-800 mb-8">Nutzungsbedingungen</h1>
+        
+        <Card>
+          <CardContent className="p-8 space-y-6">
+            <div>
+              <h2 className="text-2xl font-semibold text-green-700 mb-4">1. Geltungsbereich</h2>
+              <p className="text-gray-600 leading-relaxed">
+                Diese Nutzungsbedingungen gelten für die Nutzung der CleanCity-Plattform 
+                und aller damit verbundenen Services.
+              </p>
+            </div>
+
+            <div>
+              <h2 className="text-2xl font-semibold text-green-700 mb-4">2. Leistungsbeschreibung</h2>
+              <p className="text-gray-600 leading-relaxed">
+                CleanCity ermöglicht es Bürgern, Probleme mit Mülleimern und anderen städtischen 
+                Einrichtungen zu melden. Die Weiterleitung erfolgt an die zuständigen Behörden.
+              </p>
+            </div>
+
+            <div>
+              <h2 className="text-2xl font-semibold text-green-700 mb-4">3. Nutzerverhalten</h2>
+              <ul className="list-disc list-inside text-gray-600 space-y-2">
+                <li>Meldungen müssen wahrheitsgemäß und sachlich sein</li>
+                <li>Missbräuchliche Nutzung ist untersagt</li>
+                <li>Respektvoller Umgang mit anderen Nutzern</li>
+                <li>Keine Verwendung für rechtswidrige Zwecke</li>
+              </ul>
+            </div>
+
+            <div>
+              <h2 className="text-2xl font-semibold text-green-700 mb-4">4. Haftung</h2>
+              <p className="text-gray-600 leading-relaxed">
+                CleanCity übernimmt keine Gewähr für die Bearbeitung der Meldungen durch die 
+                zuständigen Behörden. Wir sind lediglich Vermittler zwischen Bürgern und Verwaltung.
+              </p>
+            </div>
+
+            <div>
+              <h2 className="text-2xl font-semibold text-green-700 mb-4">5. Änderungen</h2>
+              <p className="text-gray-600 leading-relaxed">
+                Wir behalten uns vor, diese Nutzungsbedingungen jederzeit zu ändern. 
+                Änderungen werden den Nutzern rechtzeitig mitgeteilt.
+              </p>
+            </div>
+
+            <div className="border-t pt-6">
+              <p className="text-sm text-gray-500">
+                Stand: Juni 2024 | Durch die Nutzung unserer Plattform stimmen Sie diesen 
+                Nutzungsbedingungen zu.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
 
   // Main render logic
   return (
