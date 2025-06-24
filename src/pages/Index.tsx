@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,18 +11,10 @@ import ProductList from '@/components/ProductList';
 import AboutUs from '@/components/AboutUs';
 import InformationPage from '@/components/InformationPage';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
-
-interface WasteBin {
-  id: string;
-  lat: number;
-  lng: number;
-}
 
 const Index = () => {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [selectedBasketId, setSelectedBasketId] = useState<string | null>(null);
-  const [wasteBins, setWasteBins] = useState<WasteBin[]>([]);
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -53,35 +46,12 @@ const Index = () => {
     }
   }, []);
 
-  useEffect(() => {
-    const fetchWasteBaskets = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('waste_bins')
-          .select('id, lat, lng');
-
-        if (error) {
-          console.error("Error fetching waste baskets:", error);
-        } else {
-          setWasteBins(data);
-        }
-      } catch (error) {
-        console.error("Error fetching waste baskets:", error);
-      }
-    };
-
-    fetchWasteBaskets();
-  }, []);
-
   const handleWasteBasketSelect = (binId: string) => {
     console.log('Selected waste basket:', binId);
     setSelectedBasketId(binId);
     
-    // Find the selected bin to get its location
-    const selectedBin = wasteBins.find(bin => bin.id === binId);
-    if (selectedBin) {
-      setSelectedLocation(`${selectedBin.lat}, ${selectedBin.lng}`);
-    }
+    // For now, we'll set a mock location since we don't have the waste_bins table
+    setSelectedLocation(`Mock location for bin ${binId}`);
   };
 
   const navigateTo = (view: string) => {
@@ -97,7 +67,7 @@ const Index = () => {
             <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
               <Leaf className="w-5 h-5 text-white" />
             </div>
-            <h1 className="text-xl font-bold text-green-800 whitespace-nowrap">CleanCity</h1>
+            <h1 className="text-xl font-bold text-green-800 whitespace-nowrap">Green Bin</h1>
           </div>
 
           {/* Desktop Navigation - Centered with fixed spacing */}
@@ -178,9 +148,9 @@ const Index = () => {
 
         {currentView === 'home' && (
           <div className="space-y-6">
-            <h1 className="text-3xl font-bold text-gray-900">Willkommen bei CleanCity</h1>
+            <h1 className="text-3xl font-bold text-gray-900">Willkommen bei Green Bin</h1>
             <p className="text-gray-700">
-              CleanCity ist eine Plattform, die es Bürgern ermöglicht, die Sauberkeit ihrer Stadt aktiv mitzugestalten. Melde verschmutzte oder überfüllte Mülleimer und hilf uns, unsere Stadt sauberer zu machen!
+              Green Bin ist eine Plattform, die es Bürgern ermöglicht, die Sauberkeit ihrer Stadt aktiv mitzugestalten. Melde verschmutzte oder überfüllte Mülleimer und hilf uns, unsere Stadt sauberer zu machen!
             </p>
             <Button onClick={() => navigateTo('report')} disabled={showLoginMessage}>Mülleimer melden</Button>
           </div>
@@ -205,9 +175,8 @@ const Index = () => {
         {currentView === 'karte' && (
           <div className="space-y-6">
             <InteractiveMap
-              onWasteBasketSelect={handleWasteBasketSelect}
-              selectedBasketId={selectedBasketId}
-              userLocation={userLocation}
+              onWasteBinSelect={handleWasteBasketSelect}
+              center={userLocation ? { lat: userLocation[0], lng: userLocation[1] } : null}
             />
           </div>
         )}
