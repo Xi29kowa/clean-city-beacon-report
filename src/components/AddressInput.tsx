@@ -195,45 +195,6 @@ const AddressInput: React.FC<AddressInputProps> = ({
 
   return (
     <div className="relative">
-      <label className="block text-sm font-medium text-gray-700 mb-2">
-        📍 Standort eingeben
-      </label>
-      
-      <Input
-        ref={inputRef}
-        type="text"
-        placeholder="Straße, Hausnummer, PLZ, Stadt eingeben..."
-        value={value}
-        onChange={handleInputChange}
-        className="pr-20"
-      />
-      
-      <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex space-x-1">
-        {value && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={clearInput}
-            className="h-8 w-8 p-0 hover:bg-gray-100"
-          >
-            <X className="w-4 h-4" />
-          </Button>
-        )}
-        
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={getCurrentLocation}
-          disabled={isGettingLocation}
-          className="h-8 w-8 p-0 hover:bg-blue-100"
-          title="Aktuellen Standort verwenden"
-        >
-          <Navigation className={`w-4 h-4 ${isGettingLocation ? 'animate-pulse' : ''}`} />
-        </Button>
-      </div>
-
       {isLoading && (
         <div className="absolute top-full left-0 right-0 bg-white border border-gray-200 rounded-md shadow-lg mt-1 p-3 z-50">
           <div className="flex items-center space-x-2">
