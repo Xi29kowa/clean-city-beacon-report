@@ -199,41 +199,39 @@ const AddressInput: React.FC<AddressInputProps> = ({
         📍 Standort eingeben
       </label>
       
-      <div className="relative">
-        <Input
-          ref={inputRef}
-          type="text"
-          placeholder="Straße, Hausnummer, PLZ, Stadt eingeben..."
-          value={value}
-          onChange={handleInputChange}
-          className="pr-20"
-        />
-        
-        <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex space-x-1">
-          {value && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={clearInput}
-              className="h-8 w-8 p-0 hover:bg-gray-100"
-            >
-              <X className="w-4 h-4" />
-            </Button>
-          )}
-          
+      <Input
+        ref={inputRef}
+        type="text"
+        placeholder="Straße, Hausnummer, PLZ, Stadt eingeben..."
+        value={value}
+        onChange={handleInputChange}
+        className="pr-20"
+      />
+      
+      <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex space-x-1">
+        {value && (
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            onClick={getCurrentLocation}
-            disabled={isGettingLocation}
-            className="h-8 w-8 p-0 hover:bg-blue-100"
-            title="Aktuellen Standort verwenden"
+            onClick={clearInput}
+            className="h-8 w-8 p-0 hover:bg-gray-100"
           >
-            <Navigation className={`w-4 h-4 ${isGettingLocation ? 'animate-pulse' : ''}`} />
+            <X className="w-4 h-4" />
           </Button>
-        </div>
+        )}
+        
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={getCurrentLocation}
+          disabled={isGettingLocation}
+          className="h-8 w-8 p-0 hover:bg-blue-100"
+          title="Aktuellen Standort verwenden"
+        >
+          <Navigation className={`w-4 h-4 ${isGettingLocation ? 'animate-pulse' : ''}`} />
+        </Button>
       </div>
 
       {isLoading && (
