@@ -11,9 +11,6 @@ import Datenschutz from "./pages/Datenschutz";
 import Impressum from "./pages/Impressum";
 import Nutzungsbedingungen from "./pages/Nutzungsbedingungen";
 import Account from "./pages/Account";
-import Karte from './pages/Karte'; // oder './pages/Karte' – je nachdem wo du sie gespeichert hast
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-
 
 const queryClient = new QueryClient();
 
