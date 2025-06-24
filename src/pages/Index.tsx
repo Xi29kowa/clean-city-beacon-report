@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Camera, MapPin, Leaf, CheckCircle, ArrowRight, Upload, Menu, X, Info, Shield, Phone, User, LogIn, Share2, Copy, Wifi, Battery, Zap, Database, Monitor, LogOut, Navigation } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -1005,8 +1004,6 @@ const Index = () => {
             <InteractiveMap
               center={locationCoordinates}
               onWasteBinSelect={handleWasteBasketSelect}
-              selectedBasketId={selectedWasteBasketId}
-              userLocation={locationCoordinates}
             />
           </div>
 
