@@ -63,8 +63,8 @@ const Index = () => {
   ];
 
   // Handle waste basket selection from map
-  const handleWasteBasketSelect = (binId: string, location: string) => {
-    console.log('Waste basket selected:', binId, location);
+  const handleWasteBasketSelect = (binId: string) => {
+    console.log('Waste basket selected:', binId);
     setSelectedWasteBasketId(binId);
     setSelectedWasteBasket(binId);
     toast({
