@@ -745,21 +745,6 @@ const Index = () => {
             Mülleimer melden <ArrowRight className="ml-2 w-5 h-5" />
           </Button>
         </div>
-
-        {/* Slideshow Indicators */}
-        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2 z-20">
-          {cityImages.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => setCurrentImageIndex(index)}
-              className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                index === currentImageIndex 
-                  ? 'bg-white shadow-lg' 
-                  : 'bg-white/50 hover:bg-white/80'
-              }`}
-            />
-          ))}
-        </div>
       </section>
 
       {/* How it works */}
