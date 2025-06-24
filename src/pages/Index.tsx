@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, MapPin, Leaf, CheckCircle, ArrowRight, Upload, Menu, X, Info, Shield, Phone, User, LogIn, Share2, Copy, Wifi, Battery, Zap, Database, Monitor, LogOut, Navigation } from 'lucide-react';
+import { Camera, MapPin, Leaf, CheckCircle, ArrowRight, Upload, Menu, X, Info, Shield, Phone, User, LogIn, Share2, Copy, Wifi, Battery, Zap, Database, Monitor, LogOut, Navigation, Trash2 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -756,24 +756,24 @@ const Index = () => {
           <div className="grid md:grid-cols-3 gap-8">
             <div className="text-center">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Camera className="w-8 h-8 text-green-600" />
+                <Trash2 className="w-8 h-8 text-green-600" />
               </div>
-              <h4 className="font-semibold mb-2">1. Foto machen</h4>
-              <p className="text-gray-600">Fotografiere den problematischen Mülleimer</p>
+              <h4 className="font-semibold mb-2">1. Mülleimer melden</h4>
+              <p className="text-gray-600">Klicke auf „Mülleimer melden", um den Vorgang zu starten.</p>
             </div>
             <div className="text-center">
               <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <MapPin className="w-8 h-8 text-blue-600" />
               </div>
-              <h4 className="font-semibold mb-2">2. Standort senden</h4>
-              <p className="text-gray-600">Automatische GPS-Erkennung oder manuelle Eingabe</p>
+              <h4 className="font-semibold mb-2">2. Standort wählen</h4>
+              <p className="text-gray-600">Wähle auf der Karte den Mülleimer aus und gib die ID ins Feld ein.</p>
             </div>
             <div className="text-center">
               <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <CheckCircle className="w-8 h-8 text-purple-600" />
               </div>
-              <h4 className="font-semibold mb-2">3. Meldung absenden</h4>
-              <p className="text-gray-600">Fertig! Die Stadtreinigung wird informiert</p>
+              <h4 className="font-semibold mb-2">3. Grund auswählen & senden</h4>
+              <p className="text-gray-600">Wähle den Meldegrund aus und schicke die Meldung ab – fertig!</p>
             </div>
           </div>
         </div>
