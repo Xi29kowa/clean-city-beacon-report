@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Camera, MapPin, Leaf, CheckCircle, ArrowRight, Upload, Menu, X, Info, Shield, Phone, User, LogIn, Share2, Copy, Wifi, Battery, Zap, Database, Monitor, LogOut, Navigation } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -313,8 +314,8 @@ const Index = () => {
 
   const handleShare = async () => {
     const url = window.location.href;
-    const title = 'CleanCity - Hilf mit, deine Stadt sauber zu halten!';
-    const text = 'Melde überfüllte oder beschädigte Mülleimer mit CleanCity und sorge für eine saubere Stadt.';
+    const title = 'Green Bin - Hilf mit, deine Stadt sauber zu halten!';
+    const text = 'Melde überfüllte oder beschädigte Mülleimer mit Green Bin und sorge für eine saubere Stadt.';
 
     if (navigator.share) {
       try {
@@ -368,7 +369,7 @@ const Index = () => {
             <div className="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center">
               <Leaf className="w-5 h-5 text-white" />
             </div>
-            <h1 className="text-xl font-bold text-green-800 whitespace-nowrap">CleanCity</h1>
+            <h1 className="text-xl font-bold text-green-800 whitespace-nowrap">Green Bin</h1>
           </div>
 
           {/* Desktop Navigation - Centered with fixed spacing */}
@@ -900,7 +901,7 @@ const Index = () => {
               </CardHeader>
               <CardContent>
                 <p className="text-gray-600">
-                  Direkte Datenübertragung an das CleanCity Backend-System.
+                  Direkte Datenübertragung an das Green Bin Backend-System.
                 </p>
               </CardContent>
             </Card>
@@ -948,7 +949,7 @@ const Index = () => {
             </CardHeader>
             <CardContent>
               <p className="text-lg text-gray-600 mb-6">
-                Sensor bald verfügbar – CleanCity testet aktuell erste Pilotgeräte in Nürnberg.
+                Sensor bald verfügbar – Green Bin testet aktuell erste Pilotgeräte in Nürnberg.
               </p>
               <p className="text-gray-500 mb-8">
                 Unsere intelligenten Sensoren werden in den kommenden Monaten in ausgewählten 
@@ -956,7 +957,7 @@ const Index = () => {
               </p>
               <Button 
                 className="bg-green-500 hover:bg-green-600 text-white px-8 py-3 text-lg rounded-full"
-                onClick={() => window.location.href = 'mailto:info@cleancity.de?subject=Interesse an CleanCity Sensoren'}
+                onClick={() => window.location.href = 'mailto:info@greenbin.de?subject=Interesse an Green Bin Sensoren'}
               >
                 Mehr erfahren
               </Button>
@@ -1003,7 +1004,7 @@ const Index = () => {
           <div className="w-full h-[600px] rounded-lg overflow-hidden border">
             <InteractiveMap
               center={locationCoordinates}
-              onWasteBasketSelect={handleWasteBasketSelect}
+              onWasteBinSelect={handleWasteBasketSelect}
               selectedBasketId={selectedWasteBasketId}
               userLocation={locationCoordinates}
             />
@@ -1060,7 +1061,7 @@ const Index = () => {
             </CardHeader>
             <CardContent>
               <p className="text-gray-600 text-lg leading-relaxed">
-                CleanCity wurde mit dem Ziel gegründet, Städte sauberer und lebenswerter zu machen. 
+                Green Bin wurde mit dem Ziel gegründet, Städte sauberer und lebenswerter zu machen. 
                 Durch innovative Technologie und Bürgerbeteiligung schaffen wir eine effiziente 
                 Verbindung zwischen Bürgern und städtischen Dienstleistungen.
               </p>
@@ -1179,7 +1180,7 @@ const Index = () => {
                 <div>
                   <h3 className="font-semibold text-lg mb-2 text-green-600">Kostet die Nutzung etwas?</h3>
                   <p className="text-gray-600">
-                    Nein, CleanCity ist für alle Bürger kostenlos nutzbar. 
+                    Nein, Green Bin ist für alle Bürger kostenlos nutzbar. 
                     Es handelt sich um einen öffentlichen Service zur Verbesserung der Stadtqualität.
                   </p>
                 </div>
@@ -1210,7 +1211,7 @@ const Index = () => {
                 <div>
                   <h3 className="font-semibold text-lg mb-2 text-green-600">Browser-Kompatibilität</h3>
                   <p className="text-gray-600">
-                    CleanCity funktioniert mit allen modernen Browsern und ist für 
+                    Green Bin funktioniert mit allen modernen Browsern und ist für 
                     Desktop und mobile Geräte optimiert.
                   </p>
                 </div>
@@ -1369,8 +1370,8 @@ const Index = () => {
             <div className="border-t pt-6">
               <p className="text-sm text-gray-500">
                 Stand: Juni 2024 | Bei Fragen zum Datenschutz kontaktieren Sie uns unter: 
-                <a href="mailto:datenschutz@cleancity.de" className="text-green-600 hover:underline">
-                  datenschutz@cleancity.de
+                <a href="mailto:datenschutz@greenbin.de" className="text-green-600 hover:underline">
+                  datenschutz@greenbin.de
                 </a>
               </p>
             </div>
@@ -1392,7 +1393,7 @@ const Index = () => {
             <div>
               <h2 className="text-2xl font-semibold text-green-700 mb-4">Angaben gemäß § 5 TMG</h2>
               <div className="text-gray-600 space-y-2">
-                <p><strong>CleanCity GmbH</strong></p>
+                <p><strong>Green Bin GmbH</strong></p>
                 <p>Musterstraße 123</p>
                 <p>90402 Nürnberg</p>
                 <p>Deutschland</p>
@@ -1403,7 +1404,7 @@ const Index = () => {
               <h2 className="text-2xl font-semibold text-green-700 mb-4">Kontakt</h2>
               <div className="text-gray-600 space-y-2">
                 <p>Telefon: +49 (0) 911 123 456</p>
-                <p>E-Mail: info@cleancity.de</p>
+                <p>E-Mail: info@greenbin.de</p>
               </div>
             </div>
 
@@ -1454,7 +1455,7 @@ const Index = () => {
             <div>
               <h2 className="text-2xl font-semibold text-green-700 mb-4">1. Geltungsbereich</h2>
               <p className="text-gray-600 leading-relaxed">
-                Diese Nutzungsbedingungen gelten für die Nutzung der CleanCity-Plattform 
+                Diese Nutzungsbedingungen gelten für die Nutzung der Green Bin-Plattform 
                 und aller damit verbundenen Services.
               </p>
             </div>
@@ -1462,7 +1463,7 @@ const Index = () => {
             <div>
               <h2 className="text-2xl font-semibold text-green-700 mb-4">2. Leistungsbeschreibung</h2>
               <p className="text-gray-600 leading-relaxed">
-                CleanCity ermöglicht es Bürgern, Probleme mit Mülleimern und anderen städtischen 
+                Green Bin ermöglicht es Bürgern, Probleme mit Mülleimern und anderen städtischen 
                 Einrichtungen zu melden. Die Weiterleitung erfolgt an die zuständigen Behörden.
               </p>
             </div>
@@ -1480,7 +1481,7 @@ const Index = () => {
             <div>
               <h2 className="text-2xl font-semibold text-green-700 mb-4">4. Haftung</h2>
               <p className="text-gray-600 leading-relaxed">
-                CleanCity übernimmt keine Gewähr für die Bearbeitung der Meldungen durch die 
+                Green Bin übernimmt keine Gewähr für die Bearbeitung der Meldungen durch die 
                 zuständigen Behörden. Wir sind lediglich Vermittler zwischen Bürgern und Verwaltung.
               </p>
             </div>
