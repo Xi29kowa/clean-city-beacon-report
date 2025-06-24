@@ -145,12 +145,11 @@ const Index = () => {
 
   // Check if report can be submitted based on partner municipality
   useEffect(() => {
-    const hasLocation = formData.location?.trim();
     const hasIssueType = formData.issueType;
-    const hasPartnerMunicipality = formData.partnerMunicipality;
     
-    setCanSubmitReport(Boolean(hasLocation && hasIssueType && hasPartnerMunicipality));
-  }, [formData.location, formData.issueType, formData.partnerMunicipality]);
+    // Only require issue type - location and partner municipality are now optional
+    setCanSubmitReport(Boolean(hasIssueType));
+  }, [formData.issueType]);
 
   // Animation function for counter
   const animateCounter = (start, end, duration = 1000) => {
@@ -243,15 +242,6 @@ const Index = () => {
       wasteBinId: formData.wasteBinId
     });
     
-    if (!formData.location?.trim()) {
-      toast({
-        title: "Fehlende Angaben",
-        description: "Bitte geben Sie einen Standort an.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
     if (!formData.issueType) {
       toast({
         title: "Fehlende Angaben", 
@@ -260,20 +250,11 @@ const Index = () => {
       });
       return;
     }
-
-    if (!formData.partnerMunicipality) {
-      toast({
-        title: "Standort nicht unterstützt",
-        description: "Leider unterstützen wir derzeit nur Meldungen in ausgewählten Partnerstädten.",
-        variant: "destructive",
-      });
-      return;
-    }
     
     console.log('🗑️ CRITICAL - PASSING wasteBinId to submitReport:', formData.wasteBinId);
     
     const reportId = await submitReport({
-      location: formData.location.trim(),
+      location: formData.location?.trim() || 'Nicht angegeben',
       issue_type: formData.issueType,
       comment: formData.comment?.trim() || null,
       photo: formData.photo,
@@ -682,18 +663,18 @@ const Index = () => {
                 {isSubmitting ? 'Wird gesendet...' : 'Meldung absenden'}
               </Button>
 
-              {/* Information Box */}
+              {/* Information Box - Updated to reflect new optional requirements */}
               {!formData.partnerMunicipality && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <div className="flex items-start space-x-2">
-                    <Info className="w-5 h-5 text-yellow-600 mt-0.5" />
+                    <Info className="w-5 h-5 text-blue-600 mt-0.5" />
                     <div>
-                      <p className="text-sm text-yellow-800 font-medium">
-                        Standort außerhalb der Partnerstädte
+                      <p className="text-sm text-blue-800 font-medium">
+                        Hinweis zur Bearbeitung
                       </p>
-                      <p className="text-sm text-yellow-700 mt-1">
-                        Derzeit unterstützen wir nur Meldungen in Nürnberg, Erlangen und Fürth. 
-                        Bitte wählen Sie einen Standort in einer dieser Städte aus.
+                      <p className="text-sm text-blue-700 mt-1">
+                        Ohne Angabe einer Partnerstadt kann die Bearbeitung länger dauern. 
+                        Für schnellere Bearbeitung wählen Sie eine Partnerstadt aus.
                       </p>
                     </div>
                   </div>
