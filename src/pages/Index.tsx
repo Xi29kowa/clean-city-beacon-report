@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera, MapPin, Leaf, CheckCircle, ArrowRight, Upload, Menu, X, Info, Shield, Phone, User, LogIn, Share2, Copy, Wifi, Battery, Zap, Database, Monitor, LogOut, Navigation, Trash2 } from 'lucide-react';
+import { Camera, MapPin, Leaf, CheckCircle, ArrowRight, Upload, Menu, X, Info, Shield, Phone, User, LogIn, Share2, Copy, Wifi, Battery, Zap, Database, Monitor, LogOut, Navigation, Trash2, Bell, Eye } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -1227,52 +1228,84 @@ const Index = () => {
       <div className="container mx-auto px-4 py-8 max-w-2xl">
         <Card className="bg-white shadow-lg">
           <CardHeader className="text-center">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CheckCircle className="w-8 h-8 text-green-600" />
+            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <CheckCircle className="w-12 h-12 text-green-600" />
             </div>
-            <CardTitle className="text-2xl text-green-800">
-              Meldung erfolgreich übermittelt!
+            <CardTitle className="text-3xl text-green-800 mb-4">
+              Vielen Dank!
             </CardTitle>
-            <p className="text-gray-600 mt-2">
-              Vielen Dank für Ihren Beitrag zu einer sauberen Stadt.
+            <p className="text-gray-600 text-lg">
+              Ihre Meldung wurde erfolgreich übermittelt. Die Stadtreinigung wird schnellstmöglich reagieren.
             </p>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <h3 className="font-semibold text-green-800 mb-2">Was passiert als Nächstes?</h3>
-              <ul className="text-sm text-green-700 space-y-1">
-                <li>• Ihre Meldung wurde an die zuständige Stadtreinigung weitergeleitet</li>
-                <li>• Die Bearbeitung erfolgt normalerweise innerhalb von 24-48 Stunden</li>
-                <li>• Sie können den Status in Ihrem Benutzerkonto verfolgen</li>
-              </ul>
-            </div>
+          <CardContent className="space-y-4">
             
-            {currentReportId && (
-              <div className="text-center">
-                <p className="text-sm text-gray-500 mb-3">
-                  Meldungs-ID: {currentReportId}
+            {/* Benachrichtigungen erhalten */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center space-x-3 mb-3">
+                <Bell className="w-5 h-5 text-blue-600" />
+                <h3 className="font-semibold text-blue-800">Benachrichtigungen erhalten?</h3>
+              </div>
+              <p className="text-sm text-blue-700 mb-3">
+                Möchten Sie informiert werden, wenn dieser Mülleimer geleert wurde?
+              </p>
+              <Button
+                onClick={() => setShowNotificationDialog(true)}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                Ja, benachrichtigen
+              </Button>
+            </div>
+
+            {/* CleanCity weiterempfehlen */}
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-center space-x-3 mb-3">
+                <Share2 className="w-5 h-5 text-green-600" />
+                <h3 className="font-semibold text-green-800">CleanCity weiterempfehlen</h3>
+              </div>
+              <p className="text-sm text-green-700 mb-3">
+                Erzählen Sie anderen von CleanCity!
+              </p>
+              <Button
+                onClick={handleShare}
+                className="w-full bg-green-600 hover:bg-green-700 text-white"
+              >
+                App teilen
+              </Button>
+            </div>
+
+            {/* Im Konto einsehen */}
+            {isLoggedIn && (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center space-x-3 mb-3">
+                  <Eye className="w-5 h-5 text-gray-600" />
+                  <h3 className="font-semibold text-gray-800">Im Konto einsehen</h3>
+                </div>
+                <p className="text-sm text-gray-700 mb-3">
+                  Verfolgen Sie den Status Ihrer Meldung in Ihrem Benutzerkonto.
                 </p>
                 <Button
-                  onClick={() => setShowNotificationDialog(true)}
+                  onClick={handleUserAccountClick}
                   variant="outline"
-                  className="text-green-600 border-green-200 hover:bg-green-50"
+                  className="w-full border-gray-300 text-gray-700 hover:bg-gray-100"
                 >
-                  Benachrichtigung bei Bearbeitung erhalten
+                  Zum Konto
                 </Button>
               </div>
             )}
             
-            <div className="flex gap-3 pt-4">
+            {/* Action Buttons */}
+            <div className="flex gap-3 pt-6">
               <Button 
                 onClick={() => setCurrentView('report')}
-                className="flex-1 bg-green-500 hover:bg-green-600 text-white"
+                className="flex-1 bg-green-500 hover:bg-green-600 text-white py-3 text-lg"
               >
-                Weitere Meldung
+                Weiteren Mülleimer melden
               </Button>
               <Button 
                 onClick={() => setCurrentView('home')}
                 variant="outline"
-                className="flex-1"
+                className="flex-1 py-3 text-lg"
               >
                 Zur Startseite
               </Button>
