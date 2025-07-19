@@ -17,11 +17,6 @@ export const useBinReports = () => {
   const { user } = useAuth();
 
   const submitReport = async (reportData: BinReportData): Promise<string | null> => {
-    if (!user) {
-      console.error('❌ User not authenticated');
-      return null;
-    }
-
     setIsSubmitting(true);
     
     try {
@@ -70,7 +65,7 @@ export const useBinReports = () => {
         comment: reportData.comment?.trim() || null,
         photo_url: photoUrl,
         partner_municipality: reportData.partner_municipality || null,
-        user_id: user.id,
+        user_id: user?.id || null,
         status: 'in_progress',
         waste_bin_id: wasteBinIdToSave // CRITICAL FIELD - cleaned and processed
       };
