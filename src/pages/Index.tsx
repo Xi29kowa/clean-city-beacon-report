@@ -1276,22 +1276,22 @@ const Index = () => {
 
             {/* Im Konto einsehen */}
             {isLoggedIn && (
-              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                <div className="flex items-center space-x-3 mb-3">
-                  <Eye className="w-5 h-5 text-gray-600" />
-                  <h3 className="font-semibold text-gray-800">Im Konto einsehen</h3>
-                </div>
-                <p className="text-sm text-gray-700 mb-3">
-                  Verfolgen Sie den Status Ihrer Meldung in Ihrem Benutzerkonto.
-                </p>
-                <Button
-                  onClick={handleUserAccountClick}
-                  variant="outline"
-                  className="w-full border-gray-300 text-gray-700 hover:bg-gray-100"
-                >
-                  Zum Konto
-                </Button>
-              </div>
+               <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                 <div className="flex items-center space-x-3 mb-3">
+                   <Eye className="w-5 h-5 text-orange-600" />
+                   <h3 className="font-semibold text-orange-800">Im Konto einsehen</h3>
+                 </div>
+                 <p className="text-sm text-orange-700 mb-3">
+                   Verfolgen Sie den Status Ihrer Meldung in Ihrem Benutzerkonto.
+                 </p>
+                 <Button
+                   onClick={handleUserAccountClick}
+                   variant="outline"
+                   className="w-full border-orange-300 text-orange-700 hover:bg-orange-100"
+                 >
+                   Zum Konto
+                 </Button>
+               </div>
             )}
             
             {/* Action Buttons */}
