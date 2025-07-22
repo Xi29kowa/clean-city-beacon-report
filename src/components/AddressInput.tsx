@@ -208,7 +208,7 @@ const AddressInput: React.FC<AddressInputProps> = ({
         className="pr-20"
       />
       
-      <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex space-x-1">
+      <div className="absolute right-2 top-9 flex space-x-1">
         {value && (
           <Button
             type="button"
